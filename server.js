@@ -3,7 +3,7 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const { processCSV, NameFixer } = require('./fixer');
+const { processCSV, NameFixer } = require('./fix.js');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -139,3 +139,4 @@ app.get('/health', (req, res) => {
 app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
 });;
+
