@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Name Converter By Faizal</title>
+  <style>
+    /* Reset some default styles */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f0f4f8;
+      color: #333;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      min-height: 100vh;
+      padding: 2rem;
+    }
+
+    h1 {
+      font-size: 2.2rem;
+      color: #1e3a8a;
+      margin-bottom: 0.2rem;
+    }
+
+    caption {
+      display: block;
+      font-size: 0.9rem;
+      color: #555;
+      margin-bottom: 1.5rem;
+    }
+
+    section {
+      background: #fff;
+      padding: 2rem;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+      width: 100%;
+      max-width: 500px;
+      text-align: center;
+    }
+
+    input[type="file"] {
+      width: 100%;
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      font-size: 16px;
+    }
+
+    button {
+      margin-top: 1rem;
+      padding: 10px 20px;
+      font-size: 16px;
+      border: none;
+      border-radius: 6px;
+      background-color: #1e3a8a;
+      color: #fff;
+      cursor: pointer;
+      transition: background-color 0.3s ease, transform 0.2s ease;
+    }
+
+    button:hover {
+      background-color: #2563eb;
+      transform: translateY(-2px);
+    }
+
+    #status {
+      margin-top: 1rem;
+      font-size: 1rem;
+      color: #1e3a8a;
+      font-weight: 500;
+    }
+
+    @media (max-width: 600px) {
+      section {
+        padding: 1.5rem;
+      }
+
+      button {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>Name Converter By Faizal</h1>
+  <caption>(Only CSV with headers: first_name and last_name)</caption>
+
+  <section>
+    <form id="csvForm" enctype="multipart/form-data">
+      <input type="file" name="file" accept=".csv" required>
+      <button type="submit">Fix CSV & Download</button>
+    </form>
+    <div id="status"></div>
+  </section>
+
+  <script>
+    const form = document.getElementById('csvForm');
+    const status = document.getElementById('status');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      status.innerText = 'Processing...';
+
+      const fileInput = form.querySelector('input[type="file"]');
+      if (!fileInput.files.length) {
+        alert('Please select a CSV file');
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('file', fileInput.files[0]);
+
+      try {
+        const res = await fetch('/fix-csv', { method: 'POST', body: formData });
+        if (!res.ok) throw new Error('Upload failed');
+
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'fixed_' + fileInput.files[0].name;
+        a.click();
+        a.remove();
+        status.innerText = '✅ CSV fixed and downloaded';
+      } catch (err) {
+        console.error(err);
+        status.innerText = '❌ Error processing CSV';
+      }
+    });
+  </script>
+</body>
+</html>
