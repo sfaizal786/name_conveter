@@ -207,9 +207,38 @@ function processCSV(inputFile, outputFile, options = {}) {
     }
 }
 
+// Test with your specific data
+function testMortenOrevik() {
+    const testNames = [
+        { first: "morten", last: "Ã˜revik" },
+        { first: "Morten", last: "Ã˜revik" },
+        { first: "anna-marie", last: "Ã…kesson" },
+        { first: "john", last: "o'reilly" }
+    ];
+    
+    console.log("Testing name capitalization:");
+    console.log("============================");
+    
+    testNames.forEach((name, index) => {
+        const firstFixed = NameFixer.fixMojibake(name.first);
+        const lastFixed = NameFixer.fixMojibake(name.last);
+        
+        const firstNormalized = NameFixer.normalizeToASCII(firstFixed, { 
+            capitalizeFirst: true 
+        });
+        const lastNormalized = NameFixer.normalizeToASCII(lastFixed, { 
+            capitalizeFirst: true 
+        });
+        
+        console.log(`${index + 1}. Input: "${name.first} ${name.last}"`);
+        console.log(`   Output: "${firstNormalized} ${lastNormalized}"`);
+        console.log(`   Fixed: "${firstFixed} ${lastFixed}"`);
+        console.log("---");
+    });
+}
 
-
-
+// Run test
+testMortenOrevik();
 
 // CLI interface
 if (require.main === module) {
@@ -217,7 +246,22 @@ if (require.main === module) {
     
     if (args.length < 2 || args.includes('--help')) {
         console.log(`
+CSV Name Fixer - Process and normalize names in CSV files
 
+Usage: node fixer.js <input.csv> <output.csv> [options]
+
+Options:
+  --preserve-accents     Keep accented characters (default: false)
+  --keep-special-chars   Keep special characters (default: false)
+  --case-sensitive       Preserve original case (default: false)
+  --no-capitalize        Disable first letter capitalization (default: capitalized)
+  --verbose              Show progress messages
+  --help                 Show this help message
+
+Examples:
+  node fixer.js input.csv output.csv
+  node fixer.js input.csv output.csv --preserve-accents --no-capitalize
+  node fixer.js input.csv output.csv --case-sensitive --verbose
         `);
         process.exit(args.includes('--help') ? 0 : 1);
     }
