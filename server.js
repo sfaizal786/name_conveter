@@ -3,6 +3,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const  {processCSV} = require('./fix'); // your fixer.js
+const PORT = process.env.PORT || 3000; // Use Render's port or fallback to 3000 locally
 
 const app = express();
 const upload = multer({ dest: 'uploads/' });
@@ -28,4 +29,8 @@ app.post('/fix-csv', upload.single('file'), (req, res) => {
     }
 });
 
-app.listen(3000, () => console.log('🚀 Server running at http://localhost:3000'));
+app.listen(PORT, () => {
+  console.log(`🚀 Server running at http://localhost:${PORT}`);
+});
+
+
