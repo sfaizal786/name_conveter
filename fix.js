@@ -30,7 +30,12 @@ class NameFixer {
             'â€œ': '“', 'â€': '”', 'â€¦': '…'
         };
 
-        // Try multiple decoding strategies if mojibake patterns detected
+        // Apply character replacements first
+        for (const [wrong, correct] of Object.entries(mojibakeMap)) {
+            text = text.replace(new RegExp(wrong, 'g'), correct);
+        }
+
+        // Try multiple decoding strategies if mojibake patterns still detected
         if (/Ã|â|Â|ð|ÿ|þ|â€/.test(text)) {
             const patterns = [
                 { encoding: 'utf8' },
@@ -51,11 +56,6 @@ class NameFixer {
                     // Continue to next pattern
                 }
             }
-        }
-
-        // Apply character replacements
-        for (const [wrong, correct] of Object.entries(mojibakeMap)) {
-            text = text.replace(new RegExp(wrong, 'g'), correct);
         }
 
         return text;
@@ -83,21 +83,21 @@ class NameFixer {
             preserveAccents = false,
             removeSpecialChars = true,
             caseSensitive = false,
-            capitalizeFirst = true  // NEW OPTION: capitalize first letter
+            capitalizeFirst = true
         } = options;
 
-        // Special replacements for Scandinavian characters
-        const map = {
-            'Ø':'O','ø':'o','Æ':'AE','æ':'ae','Å':'A','å':'a',
-            'Ä':'A','ä':'a','Ö':'O','ö':'o','Ñ':'N','ñ':'n',
-            'Ü':'U','ü':'u','ß':'ss','Ç':'C','ç':'c'
-        };
-
-        for (const [wrong, correct] of Object.entries(map)) {
-            text = text.split(wrong).join(correct);
-        }
-
+        // Special replacements for Scandinavian characters (only if not preserving accents)
         if (!preserveAccents) {
+            const map = {
+                'Ø':'O','ø':'o','Æ':'AE','æ':'ae','Å':'A','å':'a',
+                'Ä':'A','ä':'a','Ö':'O','ö':'o','Ñ':'N','ñ':'n',
+                'Ü':'U','ü':'u','ß':'ss','Ç':'C','ç':'c'
+            };
+
+            for (const [wrong, correct] of Object.entries(map)) {
+                text = text.split(wrong).join(correct);
+            }
+
             // Remove accents using Unicode normalization
             text = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
         }
@@ -113,8 +113,8 @@ class NameFixer {
             text = text.toLowerCase();
         }
 
-        // NEW: Capitalize first letter if requested
-        if (capitalizeFirst && !caseSensitive) {
+        // Capitalize first letter if requested
+        if (capitalizeFirst) {
             text = this.capitalizeFirstLetter(text);
         }
 
@@ -127,7 +127,7 @@ function processCSV(inputFile, outputFile, options = {}) {
         preserveAccents = false,
         removeSpecialChars = true,
         caseSensitive = false,
-        capitalizeFirst = true,  // NEW: default to true
+        capitalizeFirst = true,
         logProgress = false,
         encoding = 'utf8'
     } = options;
@@ -157,7 +157,7 @@ function processCSV(inputFile, outputFile, options = {}) {
             relax_column_count: true
         });
 
-        const processed = records.map((r) => {
+        const processed = records.map((r, index) => {
             const firstRaw = r.first_name || r.firstName || r.FirstName || r.First_Name || '';
             const lastRaw = r.last_name || r.lastName || r.LastName || r.Last_Name || '';
 
@@ -176,6 +176,10 @@ function processCSV(inputFile, outputFile, options = {}) {
                 caseSensitive,
                 capitalizeFirst
             });
+
+            if (logProgress && index < 5) {
+                console.log(`Sample ${index + 1}: "${firstRaw} ${lastRaw}" -> "${first} ${last}"`);
+            }
 
             return {
                 ...r,
@@ -213,26 +217,52 @@ function testMortenOrevik() {
         { first: "morten", last: "Ã˜revik" },
         { first: "Morten", last: "Ã˜revik" },
         { first: "anna-marie", last: "Ã…kesson" },
-        { first: "john", last: "o'reilly" }
+        { first: "john", last: "o'reilly" },
+        { first: "pål", last: "johansen" },
+        { first: "BJÖRN", last: "nilsson" }
     ];
     
-    console.log("Testing name capitalization:");
-    console.log("============================");
+    console.log("Testing name capitalization (WITHOUT preserving accents):");
+    console.log("=========================================================");
     
     testNames.forEach((name, index) => {
         const firstFixed = NameFixer.fixMojibake(name.first);
         const lastFixed = NameFixer.fixMojibake(name.last);
         
         const firstNormalized = NameFixer.normalizeToASCII(firstFixed, { 
-            capitalizeFirst: true 
+            capitalizeFirst: true,
+            preserveAccents: false
         });
         const lastNormalized = NameFixer.normalizeToASCII(lastFixed, { 
-            capitalizeFirst: true 
+            capitalizeFirst: true,
+            preserveAccents: false
         });
         
         console.log(`${index + 1}. Input: "${name.first} ${name.last}"`);
-        console.log(`   Output: "${firstNormalized} ${lastNormalized}"`);
         console.log(`   Fixed: "${firstFixed} ${lastFixed}"`);
+        console.log(`   Output: "${firstNormalized} ${lastNormalized}"`);
+        console.log("---");
+    });
+
+    console.log("\nTesting name capitalization (WITH preserving accents):");
+    console.log("=====================================================");
+    
+    testNames.forEach((name, index) => {
+        const firstFixed = NameFixer.fixMojibake(name.first);
+        const lastFixed = NameFixer.fixMojibake(name.last);
+        
+        const firstNormalized = NameFixer.normalizeToASCII(firstFixed, { 
+            capitalizeFirst: true,
+            preserveAccents: true
+        });
+        const lastNormalized = NameFixer.normalizeToASCII(lastFixed, { 
+            capitalizeFirst: true,
+            preserveAccents: true
+        });
+        
+        console.log(`${index + 1}. Input: "${name.first} ${name.last}"`);
+        console.log(`   Fixed: "${firstFixed} ${lastFixed}"`);
+        console.log(`   Output: "${firstNormalized} ${lastNormalized}"`);
         console.log("---");
     });
 }
@@ -262,6 +292,8 @@ Examples:
   node fixer.js input.csv output.csv
   node fixer.js input.csv output.csv --preserve-accents --no-capitalize
   node fixer.js input.csv output.csv --case-sensitive --verbose
+
+Note: First letter capitalization is ENABLED by default. Use --no-capitalize to disable.
         `);
         process.exit(args.includes('--help') ? 0 : 1);
     }
@@ -273,16 +305,25 @@ Examples:
         preserveAccents: args.includes('--preserve-accents'),
         removeSpecialChars: !args.includes('--keep-special-chars'),
         caseSensitive: args.includes('--case-sensitive'),
-        capitalizeFirst: !args.includes('--no-capitalize'), // NEW OPTION
+        capitalizeFirst: !args.includes('--no-capitalize'),
         logProgress: args.includes('--verbose')
     };
 
     try {
+        console.log('Processing CSV file...');
+        console.log('Options:', {
+            preserveAccents: options.preserveAccents,
+            removeSpecialChars: options.removeSpecialChars,
+            caseSensitive: options.caseSensitive,
+            capitalizeFirst: options.capitalizeFirst
+        });
+        
         const count = processCSV(inputFile, outputFile, options);
-        console.log(`Successfully processed ${count} records`);
+        console.log(`✅ Successfully processed ${count} records`);
+        console.log(`📁 Output file: ${outputFile}`);
         process.exit(0);
     } catch (error) {
-        console.error('Error:', error.message);
+        console.error('❌ Error:', error.message);
         process.exit(1);
     }
 }
