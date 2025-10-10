@@ -183,8 +183,6 @@ function processCSV(inputFile, outputFile, options = {}) {
                 ...r,
                 first_name: first,
                 last_name: last,
-                first_name_original: firstRaw,
-                last_name_original: lastRaw
             };
         });
 
