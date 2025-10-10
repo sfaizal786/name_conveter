@@ -2,19 +2,17 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Name Converter By Faizal</title>
+  <title>Name Converter  And Topology Maker By Faizal</title>
   <style>
-    /* Reset some default styles */
     * {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
     }
-
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: #f0f4f8;
-      color: #333;
+       background: linear-gradient(135deg, #6b21a8, #3b82f6);
+      color: #ebf7f3;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -25,7 +23,7 @@
 
     h1 {
       font-size: 2.2rem;
-      color: #1e3a8a;
+      color: white;
       margin-bottom: 0.2rem;
     }
 
@@ -34,6 +32,7 @@
       font-size: 0.9rem;
       color: #555;
       margin-bottom: 1.5rem;
+      
     }
 
     section {
@@ -44,6 +43,7 @@
       width: 100%;
       max-width: 500px;
       text-align: center;
+      margin: auto;
     }
 
     input[type="file"] {
@@ -52,6 +52,7 @@
       border-radius: 6px;
       border: 1px solid #ccc;
       font-size: 16px;
+      color: rebeccapurple ;
     }
 
     button {
@@ -90,13 +91,13 @@
   </style>
 </head>
 <body>
-  <h1>Name Converter By Faizal</h1>
-  <caption>(Only CSV with headers: first_name and last_name)</caption>
+  <h1>Name Converter And Topology Maker By Faizal</h1>
+  <caption>(Only CSV with headers: first_name, last_name and company_domain — case sensitive)</caption>
 
   <section>
     <form id="csvForm" enctype="multipart/form-data">
       <input type="file" name="file" accept=".csv" required>
-      <button type="submit">Fix CSV & Download</button>
+      <button type="submit">Fix CSV & Download and go for Topology</button>
     </form>
     <div id="status"></div>
   </section>
@@ -124,12 +125,23 @@
 
         const blob = await res.blob();
         const url = window.URL.createObjectURL(blob);
+
+        // Trigger file download
         const a = document.createElement('a');
         a.href = url;
         a.download = 'fixed_' + fileInput.files[0].name;
+        document.body.appendChild(a);
         a.click();
         a.remove();
-        status.innerText = '✅ CSV fixed and downloaded';
+
+        // Delay redirect slightly to allow download
+        setTimeout(() => {
+          window.URL.revokeObjectURL(url);
+          window.location.href = './index1.html';
+        }, 200); // 200ms delay to ensure download starts
+
+        status.innerText = '✅ CSV fixed and downloading...';
+
       } catch (err) {
         console.error(err);
         status.innerText = '❌ Error processing CSV';
