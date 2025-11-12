@@ -315,6 +315,7 @@
         cb.type = 'checkbox';
         cb.value = p.format;
         cb.dataset.id = p.id;
+        cb.dataset.label = p.label;
         const span = document.createElement('span');
         span.textContent = p.label;
         wrap.appendChild(cb);
@@ -364,17 +365,19 @@
         return;
       }
 
-      const checked = Array.from(presetCheckboxes.querySelectorAll('input[type=checkbox]:checked')).map(i => i.value);
-      const formatsToUse = checked.length ? checked : [ formatInput.value.trim() ];
+      const checked = Array.from(presetCheckboxes.querySelectorAll('input[type=checkbox]:checked'));
+      const formatsToUse = checked.length ? checked : [{ value: formatInput.value.trim(), dataset: { id: 'custom', label: 'Custom' } }];
 
       const generated = parsedRows.map(r => {
         const first = r[nameFields.first] ?? '';
         const last = r[nameFields.last] ?? '';
         const domain = r[nameFields.domain] ?? '';
         const out = { ...r };
-        formatsToUse.forEach(fmt => {
-          const col = 'email_' + fmt.replace(/[^a-z0-9]/gi, '_').replace(/_+/g, '_');
-          out[col] = generateEmailFromFormat(fmt, first, last, domain);
+        
+        formatsToUse.forEach(cb => {
+          // Use a clean column name based on the preset label
+          const colName = 'email_' + cb.dataset.id;
+          out[colName] = generateEmailFromFormat(cb.value, first, last, domain);
         });
         return out;
       });
@@ -443,4 +446,3 @@
   </script>
 </body>
 </html>
-
