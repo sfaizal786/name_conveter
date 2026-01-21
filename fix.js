@@ -9,7 +9,7 @@ class NameFixer {
         if (!text) return '';
         text = text.toString().trim();
 
-        // Extended mojibake patterns with proper Scandinavian support
+        // Extended mojibake patterns with proper European character support
         const mojibakeMap = {
             // Common UTF-8 misinterpreted as Latin1/Western European
             // Scandinavian/Nordic characters
@@ -19,18 +19,42 @@ class NameFixer {
             'Ã–': 'Ö', 'Ã¶': 'ö',  // Ö/ö
             'Ã„': 'Ä', 'Ã¤': 'ä',  // Ä/ä
             
+            // French and other European accents
+            'Ã‰': 'É', 'Ã©': 'é',  // É/é - FIXED
+            'Ã€': 'À', 'Ã€': 'à',  // À/à
+            'Ã‡': 'Ç', 'Ã§': 'ç',  // Ç/ç
+            'ÃŽ': 'Î', 'Ã®': 'î',  // Î/î
+            'Ã”': 'Ô', 'Ã´': 'ô',  // Ô/ô
+            'Ã›': 'Û', 'Ã»': 'û',  // Û/û
+            'Ã‹': 'Ë', 'Ã«': 'ë',  // Ë/ë
+            'Ã�': 'Ï', 'Ã¯': 'ï',  // Ï/ï
+            'Ãˆ': 'È', 'Ã¨': 'è',  // È/è
+            'Ã‰': 'É', 'Ã©': 'é',  // É/é (duplicate for clarity)
+            'ÃŠ': 'Ê', 'Ãª': 'ê',  // Ê/ê
+            
             // Other common mojibake
-            'Ã¡': 'á', 'Ã©': 'é', 'Ã­': 'í', 'Ã³': 'ó', 'Ãº': 'ú', 'Ã±': 'ñ',
-            'Ã¢': 'â', 'Ã£': 'ã', 'Ã¤': 'ä', 'Ã¥': 'å',
-            'Ã¨': 'è', 'Ãª': 'ê', 'Ã«': 'ë',
-            'Ã¬': 'ì', 'Ã®': 'î', 'Ã¯': 'ï',
+            'Ã¡': 'á', 'Ã­': 'í', 'Ã³': 'ó', 'Ãº': 'ú', 'Ã±': 'ñ',
+            'Ã¢': 'â', 'Ã£': 'ã',
             'Ã°': 'ð', 'Ãý': 'ý',
             'Ãñ': 'ñ', 'Ãò': 'ò', 'Ãô': 'ô', 'Ãõ': 'õ',
             'Ã¹': 'ù', 'Ãû': 'û', 'Ãü': 'ü',
             'Ãþ': 'þ', 'Ãÿ': 'ÿ',
+            
+            // Special quotation marks and dashes
             'â€"': '—', 'â€"': '–', 'â€˜': '「', 'â€™': '」',
-            'â€œ': '「', 'â€': '」', 'â€¦': '…'
+            'â€œ': '「', 'â€': '」', 'â€¦': '…',
+            
+            // Direct fixes for common mis-encodings
+            'A‰': 'É',  // Direct fix for A‰ -> É (your specific case)
+            'E‰': 'É',  // Alternative encoding
+            '‰': 'É',   // Just the percent sign case
         };
+
+        // Special handling for the specific pattern you mentioned
+        // Check for "A‰" pattern first
+        if (text.includes('A‰') || text.includes('E‰')) {
+            text = text.replace(/A‰/g, 'É').replace(/E‰/g, 'É');
+        }
 
         // Apply character replacements first
         for (const [wrong, correct] of Object.entries(mojibakeMap)) {
@@ -38,12 +62,14 @@ class NameFixer {
         }
 
         // Try multiple decoding strategies if mojibake patterns still detected
-        if (/Ã|â|Â|ð|ÿ|þ|â€/.test(text)) {
+        if (/Ã|â|Â|ð|ÿ|þ|â€|A‰|E‰/.test(text)) {
             const patterns = [
                 { encoding: 'utf8' },
                 { encoding: 'latin1' },
                 { encoding: 'windows-1252' },
-                { encoding: 'iso-8859-1' }
+                { encoding: 'iso-8859-1' },
+                { encoding: 'iso-8859-15' }, // Added for European support
+                { encoding: 'cp1252' } // Added for Windows Western European
             ];
 
             for (const pattern of patterns) {
@@ -51,7 +77,7 @@ class NameFixer {
                     const buffer = Buffer.from(text, 'binary');
                     const decoded = iconv.decode(buffer, pattern.encoding);
                     // Check if decoding improved the text
-                    if (!/Ã|â|Â|ð|ÿ|þ|â€/.test(decoded) || decoded !== text) {
+                    if (!/Ã|â|Â|ð|ÿ|þ|â€|A‰|E‰/.test(decoded) || decoded !== text) {
                         text = decoded;
                         break;
                     }
@@ -214,8 +240,10 @@ class NameFixer {
             cleanPunctuation: cleanPunct = true
         } = options;
 
-        // Step 1: Fix mojibake first
+        // Step 1: Fix mojibake first - VERY IMPORTANT
         text = this.fixMojibake(text);
+        
+        console.log(`After fixMojibake: "${text}"`); // Debug log
         
         // Step 2: Remove titles and professions if requested
         if (removeTitles) {
@@ -233,11 +261,18 @@ class NameFixer {
                 // Scandinavian
                 'Ø': 'O', 'ø': 'o', 'Æ': 'AE', 'æ': 'ae', 'Å': 'A', 'å': 'a',
                 'Ä': 'A', 'ä': 'a', 'Ö': 'O', 'ö': 'o',
+                // French and other European
+                'É': 'E', 'é': 'e', 'È': 'E', 'è': 'e',
+                'À': 'A', 'à': 'a', 'Â': 'A', 'â': 'a',
+                'Ç': 'C', 'ç': 'c', 'Ê': 'E', 'ê': 'e',
+                'Î': 'I', 'î': 'i', 'Ô': 'O', 'ô': 'o',
+                'Û': 'U', 'û': 'u', 'Ë': 'E', 'ë': 'e',
+                'Ï': 'I', 'ï': 'i', 'Ü': 'U', 'ü': 'u',
                 // Other European
-                'Ñ': 'N', 'ñ': 'n', 'Ü': 'U', 'ü': 'u', 'ß': 'ss', 
-                'Ç': 'C', 'ç': 'c', 'Ð': 'D', 'ð': 'd',
+                'Ñ': 'N', 'ñ': 'n', 'ß': 'ss', 
+                'Ð': 'D', 'ð': 'd',
                 'Þ': 'Th', 'þ': 'th', 'Ý': 'Y', 'ý': 'y',
-                'Á': 'A', 'á': 'a', 'É': 'E', 'é': 'e',
+                'Á': 'A', 'á': 'a',
                 'Í': 'I', 'í': 'i', 'Ó': 'O', 'ó': 'o',
                 'Ú': 'U', 'ú': 'u'
             };
@@ -363,83 +398,80 @@ function processCSV(inputFile, outputFile, options = {}) {
     }
 }
 
-// Test with comprehensive title removal - SIMPLIFIED VERSION
-function testTitleRemoval() {
-    console.log("Testing title removal functionality:");
-    console.log("====================================\n");
+// Test specific French character issue
+function testFrenchCharacters() {
+    console.log("Testing French character fixes:");
+    console.log("===============================\n");
 
     const testCases = [
-        "Dr. John Smith",
-        "Mr. Robert Johnson",
-        "Prof. Anna Williams",
-        "John Doe, PhD",
-        "Robert Smith, MD",
-        "CEO Mark Zuckerberg",
-        "Sir Elton John",
-        "Capt. James Kirk",
-        "Rev. Billy Graham",
-        "Attorney John Doe",
-        "Engineer Mike Brown",
-        "CPA Sarah Johnson",
-        "General George Patton",
-        "Director Steven Spielberg",
-        "John Doe Jr.",
-        "Robert Smith III",
-        "Dr John Smith",  // Without dot
-        "Mr Robert Johnson",  // Without dot
-        "phd john doe",  // Lowercase
-        "MD ROBERT SMITH",  // Uppercase
-        "dr. j. r. smith",  // Multiple initials
+        "A‰douard Mandon",  // Your specific case
+        "Ã‰douard Mandon",  // Standard mojibake
+        "Édouard Mandon",   // Correct
+        "AndrÃ© Gide",      // Another French name
+        "FranÃ§ois Hollande",
+        "RenÃ© Descartes",
+        "JosÃ© Mourinho",
+        "NiÃ±o de la Torre",
+        "BjÃ¶rn Borg",
+        "HÃ¥kan Nilsson"
     ];
 
-    testCases.forEach((testCase, index) => {
-        const result = NameFixer.normalizeToASCII(testCase, {
-            capitalizeFirst: true,
-            preserveAccents: false,
-            removeTitles: true,
-            cleanPunctuation: true
-        });
-
-        console.log(`${index + 1}. Input: "${testCase}"`);
-        console.log(`   Output: "${result}"`);
-        console.log("---");
-    });
-
-    // Test specific cases
-    console.log("\nTesting specific problematic cases:");
-    console.log("===================================\n");
-
-    const specificTests = [
-        { first: "Dr. John", last: "Smith, MD" },
-        { first: "Mr. Robert", last: "Williams, Esq." },
-        { first: "Prof. Anna", last: "Johnson, PhD" },
-        { first: "CEO", last: "Mark Zuckerberg" },
-        { first: "Sir", last: "Elton John" }
-    ];
-
-    specificTests.forEach((test, index) => {
-        const firstResult = NameFixer.normalizeToASCII(test.first, {
-            capitalizeFirst: true,
-            preserveAccents: false,
-            removeTitles: true,
-            cleanPunctuation: true
-        });
+    testCases.forEach((name, index) => {
+        console.log(`${index + 1}. Input: "${name}"`);
         
-        const lastResult = NameFixer.normalizeToASCII(test.last, {
+        // Show intermediate fixMojibake result
+        const fixed = NameFixer.fixMojibake(name);
+        console.log(`   After fixMojibake: "${fixed}"`);
+        
+        // Show final result without preserving accents
+        const withoutAccents = NameFixer.normalizeToASCII(name, {
             capitalizeFirst: true,
             preserveAccents: false,
-            removeTitles: true,
-            cleanPunctuation: true
+            removeTitles: false,
+            cleanPunctuation: false
         });
-
-        console.log(`${index + 1}. Input: "${test.first} ${test.last}"`);
-        console.log(`   Output: "${firstResult} ${lastResult}"`);
+        console.log(`   Without accents: "${withoutAccents}"`);
+        
+        // Show final result with preserving accents
+        const withAccents = NameFixer.normalizeToASCII(name, {
+            capitalizeFirst: true,
+            preserveAccents: true,
+            removeTitles: false,
+            cleanPunctuation: false
+        });
+        console.log(`   With accents: "${withAccents}"`);
+        
         console.log("---");
     });
+
+    // Test your specific case in detail
+    console.log("\nDetailed test for your specific case:");
+    console.log("=====================================\n");
+    
+    const specificCase = "A‰douard Mandon";
+    console.log(`Original: "${specificCase}"`);
+    console.log(`Char codes:`);
+    
+    for (let i = 0; i < specificCase.length; i++) {
+        console.log(`  [${i}] '${specificCase[i]}' = ${specificCase.charCodeAt(i).toString(16)}`);
+    }
+    
+    const fixed = NameFixer.fixMojibake(specificCase);
+    console.log(`\nAfter fixMojibake: "${fixed}"`);
+    
+    const final = NameFixer.normalizeToASCII(specificCase, {
+        capitalizeFirst: true,
+        preserveAccents: false,
+        removeTitles: false,
+        cleanPunctuation: false
+    });
+    
+    console.log(`Final result: "${final}"`);
+    console.log(`Expected: "Edouard Mandon"`);
 }
 
 // Run test
-testTitleRemoval();
+testFrenchCharacters();
 
 // CLI interface
 if (require.main === module) {
@@ -466,10 +498,8 @@ Examples:
   node fixer.js input.csv output.csv --preserve-accents --no-capitalize
   node fixer.js input.csv output.csv --keep-titles --keep-punctuation --verbose
 
-Note: The script now properly removes all titles including:
-  - Dr, Mr, Mrs, Ms, Prof, CEO, MD, PhD, etc.
-  - With or without dots (Dr. or Dr)
-  - Case insensitive (DR, dr, Dr all work)
+Note: Now properly handles French characters like É, é, etc.
+      "A‰douard" will become "Edouard" (or "Édouard" with --preserve-accents)
         `);
         process.exit(args.includes('--help') ? 0 : 1);
     }
