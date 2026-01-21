@@ -21,24 +21,39 @@ class NameFixer {
             "â€œ": "“", "â€": "”", "â€¦": "…"
         };
 
+        // Step 1: apply safe character replacements
         for (const [bad, good] of Object.entries(mojibakeMap)) {
             text = text.replace(new RegExp(bad, "g"), good);
         }
 
-        // Attempt re-decode if mojibake remains
-        if (/[ÃâÂ]/.test(text)) {
+        // Step 2: ONLY attempt re-decode if text STILL looks fully broken
+        // AND does NOT contain normal letters around it
+        const looksBroken =
+            /Ã|â|Â/.test(text) &&
+            !/[a-zA-Z]{2,}/.test(text.replace(/Ã|â|Â/g, ""));
+
+        if (looksBroken) {
             try {
-                const buffer = Buffer.from(text, "binary");
-                text = iconv.decode(buffer, "utf8");
+                const buffer = Buffer.from(text, "latin1");
+                const decoded = iconv.decode(buffer, "utf8");
+
+                // accept decode only if it improves text
+                if (decoded && decoded !== text && !/Ã|â|Â/.test(decoded)) {
+                    text = decoded;
+                }
             } catch (_) { }
         }
 
         return text;
     }
 
+
     // 🔹 Remove titles & professions
     static removeTitles(text) {
         if (!text) return "";
+
+        // Normalize punctuation first
+        text = text.replace(/[.,]/g, " ");
 
         const titles = [
             // Medical
@@ -46,7 +61,8 @@ class NameFixer {
             "rn", "lpn", "np", "pa",
 
             // Academic
-            "prof", "professor", "assoc prof", "asst prof",
+            "prof", "professor", "assoc prof", "associate professor",
+            "asst prof", "assistant professor",
             "phd", "dphil", "edd", "msc", "ma", "mba", "bsc", "ba", "bba",
 
             // Legal
@@ -89,14 +105,22 @@ class NameFixer {
             "jr", "sr", "ii", "iii", "iv"
         ];
 
+        // Escape regex safely
+        const escaped = titles
+            .sort((a, b) => b.length - a.length) // IMPORTANT: longest first
+            .map(t => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
 
         const pattern = new RegExp(
-            `\\b(${titles.join("|")})\\b`,
+            `(^|\\s)(${escaped.join("|")})(?=\\s|$)`,
             "gi"
         );
 
-        return text.replace(pattern, "");
+        return text
+            .replace(pattern, " ")
+            .replace(/\s+/g, " ")
+            .trim();
     }
+
 
     // 🔹 Remove punctuation except hyphen & apostrophe
     static removeSpecialCharacters(text) {
