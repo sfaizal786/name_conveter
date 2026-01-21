@@ -1,246 +1,514 @@
 // fixer.js
-const fs = require("fs");
-const iconv = require("iconv-lite");
-const { parse } = require("csv-parse/sync");
-const { stringify } = require("csv-stringify/sync");
+const fs = require('fs');
+const iconv = require('iconv-lite');
+const { parse } = require('csv-parse/sync');
+const { stringify } = require('csv-stringify/sync');
 
 class NameFixer {
-
-    // 🔹 Fix mojibake (UTF-8 shown as Latin1 etc.)
     static fixMojibake(text) {
-        if (!text) return "";
+        if (!text) return '';
         text = text.toString().trim();
 
+        // Extended mojibake patterns with proper Scandinavian support
         const mojibakeMap = {
-            "Ã¡": "á", "Ã©": "é", "Ã­": "í", "Ã³": "ó", "Ãº": "ú",
-            "Ã±": "ñ", "Ã¤": "ä", "Ã¥": "å", "Ã¶": "ö",
-            "Ã¸": "ø", "Ã˜": "Ø", "Ã…": "Å",
-            "Ã†": "Æ", "Ã¦": "æ",
-            "Ãœ": "Ü", "Ã¼": "ü",
-            "â€“": "–", "â€”": "—", "â€™": "’", "â€˜": "‘",
-            "â€œ": "“", "â€": "”", "â€¦": "…"
+            // Common UTF-8 misinterpreted as Latin1/Western European
+            // Scandinavian/Nordic characters
+            'Ã˜': 'Ø', 'Ã¸': 'ø',  // Ø/ø
+            'Ã…': 'Å', 'Ã¥': 'å',  // Å/å
+            'Ã†': 'Æ', 'Ã¦': 'æ',  // Æ/æ
+            'Ã–': 'Ö', 'Ã¶': 'ö',  // Ö/ö
+            'Ã„': 'Ä', 'Ã¤': 'ä',  // Ä/ä
+            
+            // Other common mojibake
+            'Ã¡': 'á', 'Ã©': 'é', 'Ã­': 'í', 'Ã³': 'ó', 'Ãº': 'ú', 'Ã±': 'ñ',
+            'Ã¢': 'â', 'Ã£': 'ã', 'Ã¤': 'ä', 'Ã¥': 'å',
+            'Ã¨': 'è', 'Ãª': 'ê', 'Ã«': 'ë',
+            'Ã¬': 'ì', 'Ã®': 'î', 'Ã¯': 'ï',
+            'Ã°': 'ð', 'Ãý': 'ý',
+            'Ãñ': 'ñ', 'Ãò': 'ò', 'Ãô': 'ô', 'Ãõ': 'õ',
+            'Ã¹': 'ù', 'Ãû': 'û', 'Ãü': 'ü',
+            'Ãþ': 'þ', 'Ãÿ': 'ÿ',
+            'â€"': '—', 'â€"': '–', 'â€˜': '「', 'â€™': '」',
+            'â€œ': '「', 'â€': '」', 'â€¦': '…'
         };
 
-        // Step 1: apply safe character replacements
-        for (const [bad, good] of Object.entries(mojibakeMap)) {
-            text = text.replace(new RegExp(bad, "g"), good);
+        // Apply character replacements first
+        for (const [wrong, correct] of Object.entries(mojibakeMap)) {
+            text = text.replace(new RegExp(wrong, 'g'), correct);
         }
 
-        // Step 2: ONLY attempt re-decode if text STILL looks fully broken
-        // AND does NOT contain normal letters around it
-        const looksBroken =
-            /Ã|â|Â/.test(text) &&
-            !/[a-zA-Z]{2,}/.test(text.replace(/Ã|â|Â/g, ""));
+        // Try multiple decoding strategies if mojibake patterns still detected
+        if (/Ã|â|Â|ð|ÿ|þ|â€/.test(text)) {
+            const patterns = [
+                { encoding: 'utf8' },
+                { encoding: 'latin1' },
+                { encoding: 'windows-1252' },
+                { encoding: 'iso-8859-1' }
+            ];
 
-        if (looksBroken) {
-            try {
-                const buffer = Buffer.from(text, "latin1");
-                const decoded = iconv.decode(buffer, "utf8");
-
-                // accept decode only if it improves text
-                if (decoded && decoded !== text && !/Ã|â|Â/.test(decoded)) {
-                    text = decoded;
+            for (const pattern of patterns) {
+                try {
+                    const buffer = Buffer.from(text, 'binary');
+                    const decoded = iconv.decode(buffer, pattern.encoding);
+                    // Check if decoding improved the text
+                    if (!/Ã|â|Â|ð|ÿ|þ|â€/.test(decoded) || decoded !== text) {
+                        text = decoded;
+                        break;
+                    }
+                } catch (e) {
+                    // Continue to next pattern
                 }
-            } catch (_) { }
+            }
         }
 
         return text;
     }
 
-
-    // 🔹 Remove titles & professions
-    static removeTitles(text) {
-        if (!text) return "";
-
-        // Normalize punctuation first
-        text = text.replace(/[.,]/g, " ");
-
+    static removeTitlesAndProfessions(text) {
+        if (!text) return '';
+        
+        // Comprehensive list of titles and professions to remove (case insensitive)
         const titles = [
             // Medical
             "dr", "doctor", "md", "mbbs", "dmd", "dds", "do", "pharmd",
             "rn", "lpn", "np", "pa",
-
+            
             // Academic
-            "prof", "professor", "assoc prof", "associate professor",
-            "asst prof", "assistant professor",
+            "prof", "professor", "assoc prof", "asst prof",
             "phd", "dphil", "edd", "msc", "ma", "mba", "bsc", "ba", "bba",
-
+            
             // Legal
             "esq", "esquire", "adv", "advocate", "attorney",
             "llb", "llm", "jd",
-
+            
             // Engineering / Tech
             "eng", "engineer", "er",
             "architect", "arch",
-
+            
             // Finance
             "ca", "cpa", "cfa", "cma", "acca", "cs",
-
+            
             // Science / Research
             "scientist", "researcher",
-
+            
             // Military / Govt
             "gen", "general", "col", "colonel", "maj", "major",
             "capt", "captain", "lt", "lieutenant",
             "cmdr", "commander", "sgt", "sergeant",
-
+            
             // Religious
             "rev", "reverend", "fr", "father", "pastor",
             "imam", "rabbi", "bishop",
-
+            
             // Honorifics
             "mr", "mrs", "ms", "miss", "mx",
             "sir", "madam", "dame", "lord", "lady",
-
+            
             // Corporate titles
             "ceo", "cto", "cfo", "coo", "cio",
             "vp", "svp", "evp", "avp",
             "director", "manager", "lead", "head",
-
+            
             // Nobility / Special
             "his excellency", "her excellency",
             "hon", "honorable",
-
+            
             // Suffixes
             "jr", "sr", "ii", "iii", "iv"
         ];
-
-        // Escape regex safely
-        const escaped = titles
-            .sort((a, b) => b.length - a.length) // IMPORTANT: longest first
-            .map(t => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
-
-        const pattern = new RegExp(
-            `(^|\\s)(${escaped.join("|")})(?=\\s|$)`,
-            "gi"
-        );
-
-        return text
-            .replace(pattern, " ")
-            .replace(/\s+/g, " ")
-            .trim();
+        
+        let cleaned = text;
+        
+        // First, handle the text as a whole string
+        for (const title of titles) {
+            // Create regex pattern for the title
+            // Match with optional dot, optional space, and word boundaries
+            const titleRegex = new RegExp(
+                `\\b${title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\.?\\b`,
+                'gi'
+            );
+            
+            // Remove the title
+            cleaned = cleaned.replace(titleRegex, '');
+        }
+        
+        // Clean up extra spaces and trim
+        cleaned = cleaned.replace(/\s+/g, ' ').trim();
+        
+        return cleaned;
     }
 
-
-    // 🔹 Remove punctuation except hyphen & apostrophe
-    static removeSpecialCharacters(text) {
-        return text
-            .replace(/[.,;:!?()[\]{}\\/|]/g, " ")
-            .replace(/\s+/g, " ")
-            .trim();
+    static cleanPunctuation(text) {
+        if (!text) return '';
+        
+        // Remove punctuation at word boundaries (start and end of words)
+        // This handles cases like ".John", "Smith,", "O'Connor", etc.
+        
+        // First, normalize multiple spaces
+        text = text.replace(/\s+/g, ' ');
+        
+        // Split into words
+        const words = text.split(' ');
+        
+        const cleanedWords = words.map(word => {
+            if (!word) return '';
+            
+            // Remove leading punctuation (.,;:!?~`'"()[]{})
+            let cleaned = word.replace(/^[.,;:!?~`'"()\[\]{}]+/, '');
+            
+            // Remove trailing punctuation
+            cleaned = cleaned.replace(/[.,;:!?~`'"()\[\]{}]+$/, '');
+            
+            // Handle hyphenated names (keep hyphen in the middle)
+            // Remove hyphen if it's at start or end
+            cleaned = cleaned.replace(/^-+|-+$/g, '');
+            
+            return cleaned;
+        }).filter(word => word.length > 0); // Remove empty words
+        
+        return cleanedWords.join(' ');
     }
 
-    // 🔹 Capitalize name parts correctly
-    static smartCapitalize(text) {
-        return text
-            .split(/\s+/)
-            .map(word =>
-                word
-                    .split(/([-'])/)
-                    .map(part =>
-                        /^[a-zA-Z]/.test(part)
-                            ? part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()
-                            : part
-                    )
-                    .join("")
-            )
-            .join(" ");
+    static capitalizeFirstLetter(text) {
+        if (!text) return '';
+        text = text.toString().trim();
+
+        // Handle multiple words (like first and middle names)
+        return text.split(/\s+/)
+            .map(word => {
+                if (word.length === 0) return word;
+                
+                // Special handling for names with apostrophes or hyphens
+                if (word.includes("'")) {
+                    // Like O'Connor -> O'Connor (not O'connor)
+                    return word.split("'")
+                        .map((part, i) => i === 0 ? 
+                            part.charAt(0).toUpperCase() + part.slice(1).toLowerCase() :
+                            part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+                        .join("'");
+                }
+                
+                if (word.includes("-")) {
+                    // Like Jean-Claude -> Jean-Claude
+                    return word.split("-")
+                        .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+                        .join("-");
+                }
+                
+                // Regular word
+                return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+            })
+            .join(' ');
     }
 
-    // 🔹 Normalize to ASCII
     static normalizeToASCII(text, options = {}) {
-        if (!text) return "";
+        if (!text) return '';
+        text = text.toString().trim();
 
-        const { preserveAccents = false } = options;
+        const {
+            preserveAccents = false,
+            removeSpecialChars = true,
+            caseSensitive = false,
+            capitalizeFirst = true,
+            removeTitles = true,
+            cleanPunctuation: cleanPunct = true
+        } = options;
 
-        text = this.removeTitles(text);
-        text = this.removeSpecialCharacters(text);
+        // Step 1: Fix mojibake first
+        text = this.fixMojibake(text);
+        
+        // Step 2: Remove titles and professions if requested
+        if (removeTitles) {
+            text = this.removeTitlesAndProfessions(text);
+        }
+        
+        // Step 3: Clean punctuation if requested
+        if (cleanPunct) {
+            text = this.cleanPunctuation(text);
+        }
 
+        // Step 4: Handle accents and special characters
         if (!preserveAccents) {
             const map = {
-                "Ø": "O", "ø": "o",
-                "Å": "A", "å": "a",
-                "Æ": "AE", "æ": "ae",
-                "Ä": "A", "ä": "a",
-                "Ö": "O", "ö": "o",
-                "Ü": "U", "ü": "u",
-                "Ñ": "N", "ñ": "n",
-                "ß": "ss"
+                // Scandinavian
+                'Ø': 'O', 'ø': 'o', 'Æ': 'AE', 'æ': 'ae', 'Å': 'A', 'å': 'a',
+                'Ä': 'A', 'ä': 'a', 'Ö': 'O', 'ö': 'o',
+                // Other European
+                'Ñ': 'N', 'ñ': 'n', 'Ü': 'U', 'ü': 'u', 'ß': 'ss', 
+                'Ç': 'C', 'ç': 'c', 'Ð': 'D', 'ð': 'd',
+                'Þ': 'Th', 'þ': 'th', 'Ý': 'Y', 'ý': 'y',
+                'Á': 'A', 'á': 'a', 'É': 'E', 'é': 'e',
+                'Í': 'I', 'í': 'i', 'Ó': 'O', 'ó': 'o',
+                'Ú': 'U', 'ú': 'u'
             };
 
-            for (const [k, v] of Object.entries(map)) {
-                text = text.replace(new RegExp(k, "g"), v);
+            for (const [wrong, correct] of Object.entries(map)) {
+                text = text.split(wrong).join(correct);
             }
 
-            text = text.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            // Remove remaining accents using Unicode normalization
+            text = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
         }
 
-        return this.smartCapitalize(text);
+        if (removeSpecialChars) {
+            // Keep only alphanumeric, spaces, hyphens, and apostrophes
+            text = text.replace(/[^a-zA-Z0-9\s\-']/g, '');
+            // Replace multiple spaces with single space
+            text = text.replace(/\s+/g, ' ');
+        }
+
+        if (!caseSensitive && !capitalizeFirst) {
+            // Only lowercase if not capitalizing (capitalizeFirst handles case)
+            text = text.toLowerCase();
+        }
+
+        // Capitalize first letter if requested
+        if (capitalizeFirst) {
+            text = this.capitalizeFirstLetter(text);
+        }
+
+        return text.trim();
     }
 }
-
-/* ================= CSV PROCESSOR ================= */
 
 function processCSV(inputFile, outputFile, options = {}) {
-    const { preserveAccents = false, logProgress = false } = options;
+    const {
+        preserveAccents = false,
+        removeSpecialChars = true,
+        caseSensitive = false,
+        capitalizeFirst = true,
+        removeTitles = true,
+        cleanPunctuation = true,
+        logProgress = false,
+        encoding = 'utf8'
+    } = options;
 
-    const content = fs.readFileSync(inputFile);
-    let decoded = iconv.decode(content, "utf8");
-
-    if (decoded.charCodeAt(0) === 0xFEFF) {
-        decoded = decoded.slice(1);
-    }
-
-    const records = parse(decoded, {
-        columns: true,
-        skip_empty_lines: true,
-        trim: true
-    });
-
-    const processed = records.map((r, i) => {
-        const firstRaw = r.first_name || r.firstName || "";
-        const lastRaw = r.last_name || r.lastName || "";
-
-        const first = NameFixer.normalizeToASCII(
-            NameFixer.fixMojibake(firstRaw),
-            { preserveAccents }
-        );
-
-        const last = NameFixer.normalizeToASCII(
-            NameFixer.fixMojibake(lastRaw),
-            { preserveAccents }
-        );
-
-        if (logProgress && i < 5) {
-            console.log(`"${firstRaw} ${lastRaw}" → "${first} ${last}"`);
+    try {
+        if (!fs.existsSync(inputFile)) {
+            throw new Error(`Input file not found: ${inputFile}`);
         }
 
-        return { ...r, first_name: first, last_name: last };
+        let content;
+        try {
+            content = fs.readFileSync(inputFile, encoding);
+        } catch (readError) {
+            const buffer = fs.readFileSync(inputFile);
+            content = iconv.decode(buffer, 'utf8');
+        }
+
+        if (content.charCodeAt(0) === 0xFEFF) {
+            content = content.slice(1);
+        }
+
+        const records = parse(content, {
+            columns: true,
+            skip_empty_lines: true,
+            trim: true,
+            relax_quotes: true,
+            relax_column_count: true
+        });
+
+        const processed = records.map((r, index) => {
+            const firstRaw = r.first_name || r.firstName || r.FirstName || r.First_Name || r.first || '';
+            const lastRaw = r.last_name || r.lastName || r.LastName || r.Last_Name || r.last || '';
+
+            // Apply normalization with all options
+            const first = NameFixer.normalizeToASCII(firstRaw, {
+                preserveAccents,
+                removeSpecialChars,
+                caseSensitive,
+                capitalizeFirst,
+                removeTitles,
+                cleanPunctuation
+            });
+            
+            const last = NameFixer.normalizeToASCII(lastRaw, {
+                preserveAccents,
+                removeSpecialChars,
+                caseSensitive,
+                capitalizeFirst,
+                removeTitles,
+                cleanPunctuation
+            });
+
+            if (logProgress && index < 5) {
+                console.log(`Sample ${index + 1}: "${firstRaw} ${lastRaw}" -> "${first} ${last}"`);
+            }
+
+            return {
+                ...r,
+                first_name: first,
+                last_name: last,
+            };
+        });
+
+        const csvOutput = stringify(processed, {
+            header: true,
+            quoted: true,
+            quoted_empty: true
+        });
+
+        fs.writeFileSync(outputFile, '\uFEFF' + csvOutput, 'utf8');
+
+        if (logProgress) {
+            console.log(`Processed ${processed.length} records`);
+            console.log(`Output saved to: ${outputFile}`);
+        }
+
+        return processed.length;
+
+    } catch (error) {
+        console.error('Error processing CSV:', error.message);
+        throw error;
+    }
+}
+
+// Test with comprehensive title removal - SIMPLIFIED VERSION
+function testTitleRemoval() {
+    console.log("Testing title removal functionality:");
+    console.log("====================================\n");
+
+    const testCases = [
+        "Dr. John Smith",
+        "Mr. Robert Johnson",
+        "Prof. Anna Williams",
+        "John Doe, PhD",
+        "Robert Smith, MD",
+        "CEO Mark Zuckerberg",
+        "Sir Elton John",
+        "Capt. James Kirk",
+        "Rev. Billy Graham",
+        "Attorney John Doe",
+        "Engineer Mike Brown",
+        "CPA Sarah Johnson",
+        "General George Patton",
+        "Director Steven Spielberg",
+        "John Doe Jr.",
+        "Robert Smith III",
+        "Dr John Smith",  // Without dot
+        "Mr Robert Johnson",  // Without dot
+        "phd john doe",  // Lowercase
+        "MD ROBERT SMITH",  // Uppercase
+        "dr. j. r. smith",  // Multiple initials
+    ];
+
+    testCases.forEach((testCase, index) => {
+        const result = NameFixer.normalizeToASCII(testCase, {
+            capitalizeFirst: true,
+            preserveAccents: false,
+            removeTitles: true,
+            cleanPunctuation: true
+        });
+
+        console.log(`${index + 1}. Input: "${testCase}"`);
+        console.log(`   Output: "${result}"`);
+        console.log("---");
     });
 
-    const output = stringify(processed, { header: true, quoted: true });
-    fs.writeFileSync(outputFile, "\uFEFF" + output, "utf8");
+    // Test specific cases
+    console.log("\nTesting specific problematic cases:");
+    console.log("===================================\n");
 
-    return processed.length;
+    const specificTests = [
+        { first: "Dr. John", last: "Smith, MD" },
+        { first: "Mr. Robert", last: "Williams, Esq." },
+        { first: "Prof. Anna", last: "Johnson, PhD" },
+        { first: "CEO", last: "Mark Zuckerberg" },
+        { first: "Sir", last: "Elton John" }
+    ];
+
+    specificTests.forEach((test, index) => {
+        const firstResult = NameFixer.normalizeToASCII(test.first, {
+            capitalizeFirst: true,
+            preserveAccents: false,
+            removeTitles: true,
+            cleanPunctuation: true
+        });
+        
+        const lastResult = NameFixer.normalizeToASCII(test.last, {
+            capitalizeFirst: true,
+            preserveAccents: false,
+            removeTitles: true,
+            cleanPunctuation: true
+        });
+
+        console.log(`${index + 1}. Input: "${test.first} ${test.last}"`);
+        console.log(`   Output: "${firstResult} ${lastResult}"`);
+        console.log("---");
+    });
 }
 
-/* ================= CLI ================= */
+// Run test
+testTitleRemoval();
 
+// CLI interface
 if (require.main === module) {
-    const [input, output, ...flags] = process.argv.slice(2);
+    const args = process.argv.slice(2);
 
-    if (!input || !output) {
-        console.log("Usage: node fixer.js input.csv output.csv [--preserve-accents] [--verbose]");
-        process.exit(1);
+    if (args.length < 2 || args.includes('--help')) {
+        console.log(`
+CSV Name Fixer - Process and normalize names in CSV files
+
+Usage: node fixer.js <input.csv> <output.csv> [options]
+
+Options:
+  --preserve-accents     Keep accented characters (default: false)
+  --keep-special-chars   Keep special characters (default: false)
+  --case-sensitive       Preserve original case (default: false)
+  --no-capitalize        Disable first letter capitalization (default: capitalized)
+  --keep-titles          Keep titles and professions (default: removed)
+  --keep-punctuation     Keep punctuation (default: removed)
+  --verbose              Show progress messages
+  --help                 Show this help message
+
+Examples:
+  node fixer.js input.csv output.csv
+  node fixer.js input.csv output.csv --preserve-accents --no-capitalize
+  node fixer.js input.csv output.csv --keep-titles --keep-punctuation --verbose
+
+Note: The script now properly removes all titles including:
+  - Dr, Mr, Mrs, Ms, Prof, CEO, MD, PhD, etc.
+  - With or without dots (Dr. or Dr)
+  - Case insensitive (DR, dr, Dr all work)
+        `);
+        process.exit(args.includes('--help') ? 0 : 1);
     }
 
+    const inputFile = args[0];
+    const outputFile = args[1];
+
     const options = {
-        preserveAccents: flags.includes("--preserve-accents"),
-        logProgress: flags.includes("--verbose")
+        preserveAccents: args.includes('--preserve-accents'),
+        removeSpecialChars: !args.includes('--keep-special-chars'),
+        caseSensitive: args.includes('--case-sensitive'),
+        capitalizeFirst: !args.includes('--no-capitalize'),
+        removeTitles: !args.includes('--keep-titles'),
+        cleanPunctuation: !args.includes('--keep-punctuation'),
+        logProgress: args.includes('--verbose')
     };
 
-    const count = processCSV(input, output, options);
-    console.log(`✅ Processed ${count} records`);
+    try {
+        console.log('Processing CSV file...');
+        console.log('Options:', {
+            preserveAccents: options.preserveAccents,
+            removeSpecialChars: options.removeSpecialChars,
+            caseSensitive: options.caseSensitive,
+            capitalizeFirst: options.capitalizeFirst,
+            removeTitles: options.removeTitles,
+            cleanPunctuation: options.cleanPunctuation
+        });
+
+        const count = processCSV(inputFile, outputFile, options);
+        console.log(`✅ Successfully processed ${count} records`);
+        console.log(`📁 Output file: ${outputFile}`);
+        process.exit(0);
+    } catch (error) {
+        console.error('❌ Error:', error.message);
+        process.exit(1);
+    }
 }
 
-module.exports = { NameFixer, processCSV };
+module.exports = {
+    processCSV,
+    NameFixer
+};
