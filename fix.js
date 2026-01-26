@@ -128,20 +128,20 @@ class NameFixer {
             
             // Honorifics
             "mr", "mrs", "ms", "miss", "mx",
-            "sir", "madam", "dame", "lord", "lady",
+            "sir", "madam", "dame", "lord", "lady", "IDM", "CPA", "OBE", 
             
             // Corporate titles
             "ceo", "cto", "cfo", "coo", "cio",
             "vp", "svp", "evp", "avp",
-            "director", "manager", "lead", "head",
+            "director", "manager", "lead", "head", "PMP', "PG", "Dip", "MA",
             
             // Nobility / Special
             "his excellency", "her excellency",
             "hon", "honorable",
             
             // Suffixes
-            "jr", "sr", "ii", "iii", "iv" , "PMP', "PG", "Dip", "MA",
-            "IDM", "CPA", "OBE", 
+            "jr", "sr", "ii", "iii", "iv" , 
+           
         ];
         
         let cleaned = text;
@@ -543,6 +543,7 @@ module.exports = {
     processCSV,
     NameFixer
 };
+
 
 
 
