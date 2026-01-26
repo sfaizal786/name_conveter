@@ -133,7 +133,7 @@ class NameFixer {
             // Corporate titles
             "ceo", "cto", "cfo", "coo", "cio",
             "vp", "svp", "evp", "avp",
-            "director", "manager", "lead", "head", "PMP', "PG", "Dip", "MA",
+            "director", "manager", "lead", "head", "PMP", "PG", "Dip", "MA",
             
             // Nobility / Special
             "his excellency", "her excellency",
@@ -543,6 +543,7 @@ module.exports = {
     processCSV,
     NameFixer
 };
+
 
 
 
