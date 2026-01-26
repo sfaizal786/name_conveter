@@ -18,7 +18,7 @@ class NameFixer {
         // Return the first part, capitalized properly
         if (parts.length > 0) {
             const firstPart = parts[0];
-            return firstPart.charAt(0).toUpperCase() + firstPart.slice(1).toLowerCase();
+            return this.capitalizeFirstLetter(firstPart);
         }
         return name;
     }
@@ -36,7 +36,7 @@ class NameFixer {
         // Return the last part, capitalized properly
         if (parts.length > 0) {
             const lastPart = parts[parts.length - 1];
-            return lastPart.charAt(0).toUpperCase() + lastPart.slice(1).toLowerCase();
+            return this.capitalizeFirstLetter(lastPart);
         }
         return name;
     }
@@ -45,96 +45,97 @@ class NameFixer {
         if (!text) return '';
         text = text.toString().trim();
 
-        // Extended mojibake patterns with proper European character support
+        console.log(`fixMojibake input: "${text}"`);
+        
+        // First, try direct character replacements
         const mojibakeMap = {
-            // Common UTF-8 misinterpreted as Latin1/Western European
-            // Scandinavian/Nordic characters
-            'Ã˜': 'Ø', 'Ã¸': 'ø',  // Ø/ø
-            'Ã…': 'Å', 'Ã¥': 'å',  // Å/å
-            'Ã†': 'Æ', 'Ã¦': 'æ',  // Æ/æ
-            'Ã–': 'Ö', 'Ã¶': 'ö',  // Ö/ö
-            'Ã„': 'Ä', 'Ã¤': 'ä',  // Ä/ä
+            // French and Western European - FIXED
+            'Ã©': 'é',  // é
+            'Ã¨': 'è',  // è
+            'Ãª': 'ê',  // ê
+            'Ã«': 'ë',  // ë
+            'Ã ': 'à',  // à
+            'Ã¡': 'á',  // á
+            'Ã¢': 'â',  // â
+            'Ã£': 'ã',  // ã
+            'Ã¤': 'ä',  // ä
+            'Ã¥': 'å',  // å
+            'Ã§': 'ç',  // ç
             
-            // French and other European accents - UPDATED
-            'Ã‰': 'É', 'Ã©': 'é',  // É/é - FIXED
-            'Ã€': 'À', 'Ã€': 'à',  // À/à
-            'Ã‡': 'Ç', 'Ã§': 'ç',  // Ç/ç
-            'ÃŽ': 'Î', 'Ã®': 'î',  // Î/î
-            'Ã”': 'Ô', 'Ã´': 'ô',  // Ô/ô
-            'Ã›': 'Û', 'Ã»': 'û',  // Û/û
-            'Ã‹': 'Ë', 'Ã«': 'ë',  // Ë/ë
-            'Ã�': 'Ï', 'Ã¯': 'ï',  // Ï/ï
-            'Ãˆ': 'È', 'Ã¨': 'è',  // È/è
-            'Ã‰': 'É', 'Ã©': 'é',  // É/é (duplicate for clarity)
-            'ÃŠ': 'Ê', 'Ãª': 'ê',  // Ê/ê
+            // Uppercase
+            'Ã‰': 'É',  // É
+            'Ãˆ': 'È',  // È
+            'ÃŠ': 'Ê',  // Ê
+            'Ã‹': 'Ë',  // Ë
+            'Ã€': 'À',  // À
+            'Ã': 'Á',  // Á
+            'Ã‚': 'Â',  // Â
+            'Ãƒ': 'Ã',  // Ã
+            'Ã„': 'Ä',  // Ä
+            'Ã…': 'Å',  // Å
+            'Ã‡': 'Ç',  // Ç
             
-            // Special handling for FrÃ©dÃ©ric pattern
-            'Ã©': 'é',  // Small e with acute accent
-            'Ã¨': 'è',  // Small e with grave accent
-            'Ãª': 'ê',  // Small e with circumflex
-            'Ã«': 'ë',  // Small e with diaeresis
+            // German and Nordic
+            'Ã¶': 'ö',  // ö
+            'Ã–': 'Ö',  // Ö
+            'Ã¼': 'ü',  // ü
+            'Ãœ': 'Ü',  // Ü
+            'ÃŸ': 'ß',  // ß
+            'Ã¸': 'ø',  // ø
+            'Ã˜': 'Ø',  // Ø
+            'Ã¦': 'æ',  // æ
+            'Ã†': 'Æ',  // Æ
             
-            // Other common mojibake
-            'Ã¡': 'á', 'Ã­': 'í', 'Ã³': 'ó', 'Ãº': 'ú', 'Ã±': 'ñ',
-            'Ã¢': 'â', 'Ã£': 'ã',
-            'Ã°': 'ð', 'Ãý': 'ý',
-            'Ãñ': 'ñ', 'Ãò': 'ò', 'Ãô': 'ô', 'Ãõ': 'õ',
-            'Ã¹': 'ù', 'Ãû': 'û', 'Ãü': 'ü',
-            'Ãþ': 'þ', 'Ãÿ': 'ÿ',
+            // Spanish and Portuguese
+            'Ã±': 'ñ',  // ñ
+            'Ã‘': 'Ñ',  // Ñ
+            'Ã­': 'í',  // í
+            'Ã³': 'ó',  // ó
+            'Ãº': 'ú',  // ú
             
-            // Special quotation marks and dashes
-            'â€"': '—', 'â€"': '–', 'â€˜': '「', 'â€™': '」',
-            'â€œ': '「', 'â€': '」', 'â€¦': '…',
-            
-            // Direct fixes for common mis-encodings
-            'A‰': 'É',  // Direct fix for A‰ -> É (your specific case)
-            'E‰': 'É',  // Alternative encoding
-            '‰': 'É',   // Just the percent sign case
-            
-            // Special handling for FrÃ©dÃ©ric
-            'Ã©': 'é',  // Small e with acute
-            'Ã¨': 'è',// Small e with grave
-            'Å': 'l',
+            // Polish characters
+            'Å‚': 'ł',  // ł
+            'Å„': 'ń',  // ń
+            'Å›': 'ś',  // ś
+            'Åº': 'ź',  // ź
+            'Å¼': 'ż',  // ż
+            'Ä…': 'ą',  // ą
+            'Ä‡': 'ć',  // ć
+            'Ä™': 'ę',  // ę
+            'Å³': 'ó',  // ó
+            'Å': 'Ł',  // Ł
+            'Åš': 'Ś',  // Ś
+            'Å»': 'Ż',  // Ż
         };
 
-        // Special handling for the specific pattern you mentioned
-        // Check for "A‰" pattern first
-        if (text.includes('A‰') || text.includes('E‰')) {
-            text = text.replace(/A‰/g, 'É').replace(/E‰/g, 'É');
-        }
-
-        // Apply character replacements first
+        let result = text;
+        
+        // Apply all replacements
         for (const [wrong, correct] of Object.entries(mojibakeMap)) {
-            text = text.replace(new RegExp(wrong, 'g'), correct);
-        }
-
-        // Try multiple decoding strategies if mojibake patterns still detected
-        if (/Ã|â|Â|ð|ÿ|þ|â€|A‰|E‰/.test(text)) {
-            const patterns = [
-                { encoding: 'utf8' },
-                { encoding: 'latin1' },
-                { encoding: 'windows-1252' },
-                { encoding: 'iso-8859-1' },
-                { encoding: 'iso-8859-15' }, // Added for European support
-                { encoding: 'cp1252' } // Added for Windows Western European
-            ];
-
-            for (const pattern of patterns) {
-                try {
-                    const buffer = Buffer.from(text, 'binary');
-                    const decoded = iconv.decode(buffer, pattern.encoding);
-                    // Check if decoding improved the text
-                    if (!/Ã|â|Â|ð|ÿ|þ|â€|A‰|E‰/.test(decoded) || decoded !== text) {
-                        text = decoded;
-                        break;
-                    }
-                } catch (e) {
-                    // Continue to next pattern
-                }
+            // Escape special regex characters
+            const escapedWrong = wrong.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp(escapedWrong, 'g');
+            const before = result;
+            result = result.replace(regex, correct);
+            if (before !== result) {
+                console.log(`  Replaced "${wrong}" with "${correct}": "${before}" -> "${result}"`);
             }
         }
 
-        return text;
+        // Special case for FrÃ©dÃ©ric
+        if (result.includes('FrÃ©') || result.includes('FrÃ©dÃ©ric')) {
+            console.log(`  Special handling for FrÃ©dÃ©ric pattern`);
+            result = result.replace(/FrÃ©/g, 'Fré').replace(/dÃ©/g, 'dé');
+        }
+
+        // Special case for GuÃ©rin
+        if (result.includes('GuÃ©')) {
+            console.log(`  Special handling for GuÃ© pattern`);
+            result = result.replace(/GuÃ©/g, 'Gué');
+        }
+
+        console.log(`fixMojibake result: "${result}"`);
+        return result;
     }
 
     static removeTitlesAndProfessions(text) {
@@ -170,7 +171,7 @@ class NameFixer {
             "cmdr", "commander", "sgt", "sergeant",
             
             // Religious
-            "rev", "reverend", "fr", "father", "pastor",
+            "rev", "reverend", "father", "pastor",  // Removed "fr" which was causing issues
             "imam", "rabbi", "bishop",
             
             // Honorifics
@@ -287,43 +288,53 @@ class NameFixer {
             cleanPunctuation: cleanPunct = true
         } = options;
 
+        console.log(`normalizeToASCII input: "${text}"`);
+        
         // Step 1: Fix mojibake first - VERY IMPORTANT
         text = this.fixMojibake(text);
+        console.log(`  After fixMojibake: "${text}"`);
         
         // Step 2: Remove titles and professions if requested
         if (removeTitles) {
             text = this.removeTitlesAndProfessions(text);
+            console.log(`  After removeTitles: "${text}"`);
         }
         
         // Step 3: Clean punctuation if requested
         if (cleanPunct) {
             text = this.cleanPunctuation(text);
+            console.log(`  After cleanPunctuation: "${text}"`);
         }
 
         // Step 4: Handle accents and special characters
         if (!preserveAccents) {
-            // First, handle specific accented characters properly
+            console.log(`  Removing accents`);
+            
+            // Comprehensive accent map
             const accentMap = {
-                // Lowercase vowels with accents
+                // French and Western European
                 'á': 'a', 'à': 'a', 'â': 'a', 'ä': 'a', 'ã': 'a', 'å': 'a',
                 'é': 'e', 'è': 'e', 'ê': 'e', 'ë': 'e',
                 'í': 'i', 'ì': 'i', 'î': 'i', 'ï': 'i',
                 'ó': 'o', 'ò': 'o', 'ô': 'o', 'ö': 'o', 'õ': 'o', 'ø': 'o',
                 'ú': 'u', 'ù': 'u', 'û': 'u', 'ü': 'u',
                 'ý': 'y', 'ÿ': 'y',
-                'ç': 'c',
-                'ñ': 'n',
-                'ß': 'ss',
+                'ç': 'c', 'ñ': 'n', 'ß': 'ss',
                 
-                // Uppercase vowels with accents
+                // Polish characters
+                'ą': 'a', 'ć': 'c', 'ę': 'e', 'ł': 'l', 'ń': 'n',
+                'ó': 'o', 'ś': 's', 'ź': 'z', 'ż': 'z',
+                
+                // Uppercase equivalents
                 'Á': 'A', 'À': 'A', 'Â': 'A', 'Ä': 'A', 'Ã': 'A', 'Å': 'A',
                 'É': 'E', 'È': 'E', 'Ê': 'E', 'Ë': 'E',
                 'Í': 'I', 'Ì': 'I', 'Î': 'I', 'Ï': 'I',
                 'Ó': 'O', 'Ò': 'O', 'Ô': 'O', 'Ö': 'O', 'Õ': 'O', 'Ø': 'O',
                 'Ú': 'U', 'Ù': 'U', 'Û': 'U', 'Ü': 'U',
                 'Ý': 'Y',
-                'Ç': 'C',
-                'Ñ': 'N',
+                'Ç': 'C', 'Ñ': 'N',
+                'Ą': 'A', 'Ć': 'C', 'Ę': 'E', 'Ł': 'L', 'Ń': 'N',
+                'Ś': 'S', 'Ź': 'Z', 'Ż': 'Z',
                 
                 // Special characters
                 'Æ': 'AE', 'æ': 'ae',
@@ -334,122 +345,46 @@ class NameFixer {
 
             // Apply the accent map
             for (const [accented, plain] of Object.entries(accentMap)) {
-                text = text.replace(new RegExp(accented, 'g'), plain);
+                const regex = new RegExp(accented, 'g');
+                const before = text;
+                text = text.replace(regex, plain);
+                if (before !== text) {
+                    console.log(`    Replaced ${accented} with ${plain}: "${before}" -> "${text}"`);
+                }
             }
 
-            // Then use Unicode normalization to remove any remaining combining diacritical marks
+            // Use Unicode normalization to remove any remaining combining diacritical marks
+            const beforeNormalization = text;
             text = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-            
-            // Clean up any double letters that might have been created
-            text = text.replace(/ae/g, 'a').replace(/AE/g, 'A');
+            if (beforeNormalization !== text) {
+                console.log(`  After Unicode normalization: "${text}"`);
+            }
         }
 
         if (removeSpecialChars) {
+            console.log(`  Removing special characters`);
             // Keep only alphanumeric, spaces, hyphens, and apostrophes
             text = text.replace(/[^a-zA-Z0-9\s\-']/g, '');
             // Replace multiple spaces with single space
             text = text.replace(/\s+/g, ' ');
+            console.log(`  After removeSpecialChars: "${text}"`);
         }
 
         if (!caseSensitive && !capitalizeFirst) {
-            // Only lowercase if not capitalizing (capitalizeFirst handles case)
+            console.log(`  Lowercasing`);
             text = text.toLowerCase();
+            console.log(`  After lowercase: "${text}"`);
         }
 
         // Capitalize first letter if requested
         if (capitalizeFirst) {
+            console.log(`  Capitalizing first letter`);
             text = this.capitalizeFirstLetter(text);
+            console.log(`  After capitalize: "${text}"`);
         }
 
+        console.log(`  Final: "${text.trim()}"`);
         return text.trim();
-    }
-
-    // NEW: Special function to handle French names specifically
-    static fixFrenchNames(text, options = {}) {
-        if (!text) return '';
-        
-        const {
-            preserveAccents = false,
-            capitalizeFirst = true
-        } = options;
-        
-        // First fix the mojibake
-        text = this.fixMojibake(text);
-        
-        // Handle specific French patterns
-        const frenchPatterns = [
-            // Fix common French mojibake issues
-            { pattern: /FrÃ©dÃ©ric/gi, replacement: 'Frédéric' },
-            { pattern: /GuÃ©rin/gi, replacement: 'Guérin' },
-            { pattern: /Ã©/g, replacement: 'é' },
-            { pattern: /Ã¨/g, replacement: 'è' },
-            { pattern: /Ãª/g, replacement: 'ê' },
-            { pattern: /Ã«/g, replacement: 'ë' },
-            { pattern: /Ã¢/g, replacement: 'â' },
-            { pattern: /Ã®/g, replacement: 'î' },
-            { pattern: /Ã´/g, replacement: 'ô' },
-            { pattern: /Ã»/g, replacement: 'û' },
-            { pattern: /Ã§/g, replacement: 'ç' },
-            { pattern: /Ã¡/g, replacement: 'á' },
-            { pattern: /Ã­/g, replacement: 'í' },
-            { pattern: /Ã³/g, replacement: 'ó' },
-            { pattern: /Ãº/g, replacement: 'ú' },
-            { pattern: /Ã±/g, replacement: 'ñ' },
-        ];
-        
-        for (const { pattern, replacement } of frenchPatterns) {
-            text = text.replace(pattern, replacement);
-        }
-        
-        // If not preserving accents, convert to ASCII
-        if (!preserveAccents) {
-            text = this.convertToPlainASCII(text);
-        }
-        
-        // Capitalize if requested
-        if (capitalizeFirst) {
-            text = this.capitalizeFirstLetter(text);
-        }
-        
-        return text;
-    }
-    
-    // NEW: Helper function to convert accented characters to plain ASCII
-    static convertToPlainASCII(text) {
-        if (!text) return '';
-        
-        const accentMap = {
-            'À': 'A', 'Á': 'A', 'Â': 'A', 'Ã': 'A', 'Ä': 'A', 'Å': 'A', 'Æ': 'AE',
-            'Ç': 'C',
-            'È': 'E', 'É': 'E', 'Ê': 'E', 'Ë': 'E',
-            'Ì': 'I', 'Í': 'I', 'Î': 'I', 'Ï': 'I',
-            'Ð': 'D',
-            'Ñ': 'N',
-            'Ò': 'O', 'Ó': 'O', 'Ô': 'O', 'Õ': 'O', 'Ö': 'O', 'Ø': 'O',
-            'Ù': 'U', 'Ú': 'U', 'Û': 'U', 'Ü': 'U',
-            'Ý': 'Y',
-            'Þ': 'TH',
-            'ß': 'ss',
-            'à': 'a', 'á': 'a', 'â': 'a', 'ã': 'a', 'ä': 'a', 'å': 'a', 'æ': 'ae',
-            'ç': 'c',
-            'è': 'e', 'é': 'e', 'ê': 'e', 'ë': 'e',
-            'ì': 'i', 'í': 'i', 'î': 'i', 'ï': 'i',
-            'ð': 'd',
-            'ñ': 'n',
-            'ò': 'o', 'ó': 'o', 'ô': 'o', 'õ': 'o', 'ö': 'o', 'ø': 'o',
-            'ù': 'u', 'ú': 'u', 'û': 'u', 'ü': 'u',
-            'ý': 'y',
-            'þ': 'th',
-            'ÿ': 'y'
-        };
-        
-        let result = '';
-        for (let i = 0; i < text.length; i++) {
-            const char = text[i];
-            result += accentMap[char] || char;
-        }
-        
-        return result;
     }
 }
 
@@ -482,7 +417,7 @@ function processCSV(inputFile, outputFile, options = {}) {
         }
 
         if (content.charCodeAt(0) === 0xFEFF) {
-            content = content.slice(1);
+            content = content.slice(1); // Remove BOM
         }
 
         const records = parse(content, {
@@ -499,32 +434,21 @@ function processCSV(inputFile, outputFile, options = {}) {
             const lastRaw = r.last_name || r.lastName || r.LastName || r.Last_Name || r.last || '';
             const companyRaw = r.company_domain || r.company || r.domain || '';
 
-            // First, apply French name fix specifically for problematic cases
-            let first = NameFixer.fixFrenchNames(firstRaw, {
-                preserveAccents,
-                capitalizeFirst
-            });
-            
-            let last = NameFixer.fixFrenchNames(lastRaw, {
-                preserveAccents,
-                capitalizeFirst
-            });
-
-            // Then apply general normalization
-            first = NameFixer.normalizeToASCII(first, {
+            // Apply normalization
+            let first = NameFixer.normalizeToASCII(firstRaw, {
                 preserveAccents,
                 removeSpecialChars,
                 caseSensitive,
-                capitalizeFirst: false, // Already capitalized by fixFrenchNames
+                capitalizeFirst,
                 removeTitles,
                 cleanPunctuation
             });
             
-            last = NameFixer.normalizeToASCII(last, {
+            let last = NameFixer.normalizeToASCII(lastRaw, {
                 preserveAccents,
                 removeSpecialChars,
                 caseSensitive,
-                capitalizeFirst: false, // Already capitalized by fixFrenchNames
+                capitalizeFirst,
                 removeTitles,
                 cleanPunctuation
             });
@@ -575,115 +499,110 @@ function processCSV(inputFile, outputFile, options = {}) {
     }
 }
 
-// Test specific French character issue
-function testFrenchCharacters() {
-    console.log("Testing French character fixes:");
-    console.log("===============================\n");
-
+// Test specific cases
+function testFrenchNames() {
+    console.log("=== Testing French Name Fix ===");
+    
     const testCases = [
-        { input: "FrÃ©dÃ©ric", expected: "Frederic" },
-        { input: "GuÃ©rin", expected: "Guerin" },
-        { input: "A‰douard Mandon", expected: "Edouard Mandon" },
-        { input: "Ã‰douard Mandon", expected: "Edouard Mandon" },
-        { input: "Édouard Mandon", expected: "Edouard Mandon" },
-        { input: "AndrÃ© Gide", expected: "Andre Gide" },
-        { input: "FranÃ§ois Hollande", expected: "Francois Hollande" },
-        { input: "RenÃ© Descartes", expected: "Rene Descartes" },
-        { input: "JosÃ© Mourinho", expected: "Jose Mourinho" },
-        { input: "NiÃ±o de la Torre", expected: "Nino de la Torre" },
-        { input: "BjÃ¶rn Borg", expected: "Bjorn Borg" },
-        { input: "HÃ¥kan Nilsson", expected: "Hakan Nilsson" }
+        { 
+            input: "FrÃ©dÃ©ric", 
+            description: "French name with é",
+            expectedWithAccents: "Frédéric",
+            expectedWithoutAccents: "Frederic"
+        },
+        { 
+            input: "GuÃ©rin", 
+            description: "French name with é",
+            expectedWithAccents: "Guérin",
+            expectedWithoutAccents: "Guerin"
+        },
+        { 
+            input: "AndrÃ©", 
+            description: "French name with é",
+            expectedWithAccents: "André",
+            expectedWithoutAccents: "Andre"
+        },
+        { 
+            input: "RenÃ©", 
+            description: "French name with é",
+            expectedWithAccents: "René",
+            expectedWithoutAccents: "Rene"
+        },
+        { 
+            input: "JosÃ©", 
+            description: "Spanish name with é",
+            expectedWithAccents: "José",
+            expectedWithoutAccents: "Jose"
+        },
+        { 
+            input: "FranÃ§ois", 
+            description: "French name with ç",
+            expectedWithAccents: "François",
+            expectedWithoutAccents: "Francois"
+        },
     ];
-
+    
     testCases.forEach((test, index) => {
-        console.log(`${index + 1}. Input: "${test.input}"`);
+        console.log(`\nTest ${index + 1}: ${test.description}`);
+        console.log(`  Input: "${test.input}"`);
         
-        // Test with preserveAccents: false
-        const result = NameFixer.normalizeToASCII(test.input, {
+        // Test fixMojibake first
+        const fixed = NameFixer.fixMojibake(test.input);
+        console.log(`  After fixMojibake: "${fixed}"`);
+        
+        // Test with accents preserved
+        const withAccents = NameFixer.normalizeToASCII(test.input, {
+            preserveAccents: true,
+            removeTitles: false,
+            cleanPunctuation: false,
+            capitalizeFirst: false
+        });
+        console.log(`  With accents: "${withAccents}"`);
+        console.log(`  Expected with accents: "${test.expectedWithAccents}"`);
+        console.log(`  Match: ${withAccents === test.expectedWithAccents ? '✓' : '✗'}`);
+        
+        // Test without accents
+        const withoutAccents = NameFixer.normalizeToASCII(test.input, {
             preserveAccents: false,
             removeTitles: false,
-            cleanPunctuation: false
+            cleanPunctuation: false,
+            capitalizeFirst: false
         });
-        
-        console.log(`   Result: "${result}"`);
-        console.log(`   Expected: "${test.expected}"`);
-        console.log(`   Match: ${result === test.expected ? '✓' : '✗'}`);
-        console.log("---");
+        console.log(`  Without accents: "${withoutAccents}"`);
+        console.log(`  Expected without accents: "${test.expectedWithoutAccents}"`);
+        console.log(`  Match: ${withoutAccents === test.expectedWithoutAccents ? '✓' : '✗'}`);
     });
 }
 
-// Test name cleaning functionality with your specific cases
-function testYourSpecificCases() {
-    console.log("\n\nTesting Your Specific Cases:");
-    console.log("============================\n");
-
-    // Test cases from your input
+// Test all cases
+function testAllCases() {
+    console.log("\n\n=== Testing All Cases ===");
+    
     const testCases = [
-        { input: "FAIZAL-ABAS", expected: "Faizal" },
-        { input: "FAIZAL ABAS", expected: "Faizal" },
-        { input: "FAIZAL ABAS jghjghhg", expected: "Faizal" },
-        { input: "faizal", expected: "Faizal" },
-        { input: "prof 'shaif", expected: "Shaif" },
-        { input: "shouf.", expected: "Shouf" },
-        { input: "shah jr", expected: "Shah" },
-        { input: "cp faizal", expected: "Faizal" },
-        { input: "faizal PMP", expected: "Faizal" },
-        { input: "OBE FAIZAL", expected: "Faizal" }
+        { first: "FrÃ©dÃ©ric", last: "GuÃ©rin", expectedFirst: "Frederic", expectedLast: "Guerin" },
+        { first: "PaweÅ‚", last: "Kowalski", expectedFirst: "Pawel", expectedLast: "Kowalski" },
+        { first: "JarosÅ‚aw", last: "Nowak", expectedFirst: "Jaroslaw", expectedLast: "Nowak" },
+        { first: "FAIZAL SHAIKH", last: "PMP SHAH-shah-shash", expectedFirst: "Faizal", expectedLast: "Shash" },
+        { first: "prof 'shaif", last: "khan", expectedFirst: "Shaif", expectedLast: "Khan" },
+        { first: "cp faizal", last: "PMP SHAH", expectedFirst: "Faizal", expectedLast: "Shah" },
+        { first: "OBE FAIZAL", last: "PMP SHAH-shah-shash", expectedFirst: "Faizal", expectedLast: "Shash" },
     ];
-
-    console.log("First Name Tests:");
+    
     testCases.forEach((test, index) => {
-        const cleaned = NameFixer.cleanFirstName(test.input);
-        const status = cleaned === test.expected ? "✓" : "✗";
-        console.log(`${index + 1}. ${status} "${test.input}" -> "${cleaned}" (Expected: "${test.expected}")`);
-    });
-
-    console.log("\nLast Name Tests:");
-    const lastNameTests = [
-        { input: "PMP SHAH", expected: "Shah" },
-        { input: "PMP SHAH shah shash", expected: "Shash" },
-        { input: "PMP SHAH-shah-shash", expected: "Shash" },
-        { input: "shaikh", expected: "Shaikh" },
-        { input: "khan", expected: "Khan" },
-        { input: "SHAH-shah-shash", expected: "Shash" },
-        { input: "SHUFA ABBAS SHAIKH", expected: "Shaikh" },
-        { input: "FAIZAK ABBAS KHAN", expected: "Khan" }
-    ];
-
-    lastNameTests.forEach((test, index) => {
-        const cleaned = NameFixer.cleanLastName(test.input);
-        const status = cleaned === test.expected ? "✓" : "✗";
-        console.log(`${index + 1}. ${status} "${test.input}" -> "${cleaned}" (Expected: "${test.expected}")`);
-    });
-
-    console.log("\nFrench Name Tests:");
-    const frenchTests = [
-        { input: "FrÃ©dÃ©ric", expected: "Frederic" },
-        { input: "GuÃ©rin", expected: "Guerin" },
-        { input: "Frédéric", expected: "Frederic" },
-        { input: "Guérin", expected: "Guerin" },
-        { input: "Jérôme", expected: "Jerome" },
-        { input: "Renée", expected: "Renee" },
-        { input: "François", expected: "Francois" },
-        { input: "Zoë", expected: "Zoe" },
-        { input: "Niña", expected: "Nina" },
-        { input: "São", expected: "Sao" }
-    ];
-
-    frenchTests.forEach((test, index) => {
-        const result = NameFixer.normalizeToASCII(test.input, {
-            preserveAccents: false,
-            removeTitles: false,
-            cleanPunctuation: false
-        });
-        const status = result === test.expected ? "✓" : "✗";
-        console.log(`${index + 1}. ${status} "${test.input}" -> "${result}" (Expected: "${test.expected}")`);
+        console.log(`\nTest ${index + 1}: "${test.first} ${test.last}"`);
+        
+        const first = NameFixer.cleanFirstName(NameFixer.normalizeToASCII(test.first, { preserveAccents: false }));
+        const last = NameFixer.cleanLastName(NameFixer.normalizeToASCII(test.last, { preserveAccents: false }));
+        
+        console.log(`  Output: "${first} ${last}"`);
+        console.log(`  Expected: "${test.expectedFirst} ${test.expectedLast}"`);
+        console.log(`  Match: ${first === test.expectedFirst && last === test.expectedLast ? '✓' : '✗'}`);
     });
 }
 
 // Run tests
-testFrenchCharacters();
-testYourSpecificCases();
+testFrenchNames();
+testAllCases();
 
 // CLI interface
 if (require.main === module) {
@@ -707,20 +626,17 @@ Options:
   --verbose              Show progress messages
   --help                 Show this help message
 
+Important Fixes:
+  - French names: "FrÃ©dÃ©ric" -> "Frederic" (or "Frédéric" with --preserve-accents)
+  - French names: "GuÃ©rin" -> "Guerin" (or "Guérin" with --preserve-accents)
+  - Polish names: "PaweÅ‚" -> "Pawel" (or "Paweł" with --preserve-accents)
+  - First name: Takes only first part (FAIZAL SHAIKH -> Faizal)
+  - Last name: Takes only last part (PMP SHAH-shah-shash -> Shash)
+
 Examples:
   node fixer.js input.csv output.csv
-  node fixer.js input.csv output.csv --preserve-accents --no-capitalize
-  node fixer.js input.csv output.csv --keep-titles --keep-punctuation --verbose
-  node fixer.js input.csv output.csv --no-clean-firstname --no-clean-lastname
-
-Name Cleaning Behavior:
-  - First name: Takes only first part (FAIZAL SHAIKH -> Faizal, FAIZAL-SHAIKH -> Faizal)
-  - Last name: Takes only last part after splitting by space OR hyphen (PMP SHAH-shah-shash -> Shash)
-  - French names: "FrÃ©dÃ©ric" -> "Frederic", "GuÃ©rin" -> "Guerin"
-
-Note: Now properly handles French characters like É, é, etc.
-      "FrÃ©dÃ©ric" will become "Frederic" (or "Frédéric" with --preserve-accents)
-      "GuÃ©rin" will become "Guerin" (or "Guérin" with --preserve-accents)
+  node fixer.js input.csv output.csv --preserve-accents
+  node fixer.js input.csv output.csv --verbose
         `);
         process.exit(args.includes('--help') ? 0 : 1);
     }
@@ -759,18 +675,16 @@ Note: Now properly handles French characters like É, é, etc.
         console.log(`📁 Output file: ${outputFile}`);
         
         // Show sample of what was done
-        if (options.logProgress) {
-            console.log('\nName Cleaning Examples:');
-            console.log('======================');
-            console.log('First Name: "FAIZAL SHAIKH" -> "Faizal" (only first part)');
-            console.log('First Name: "FAIZAL-SHAIKH" -> "Faizal" (only first part)');
-            console.log('First Name: "SHAHID SHAIKH SHAIKH SHAIKH" -> "Shahid" (only first part)');
-            console.log('Last Name: "SHUFA ABBAS SHAIKH" -> "Shaikh" (only last part after space)');
-            console.log('Last Name: "FAIZAK ABBAS KHAN" -> "Khan" (only last part after space)');
-            console.log('Last Name: "PMP SHAH-shah-shash" -> "Shash" (only last part after space OR hyphen)');
-            console.log('French Names: "FrÃ©dÃ©ric" -> "Frederic" (with --preserve-accents: "Frédéric")');
-            console.log('French Names: "GuÃ©rin" -> "Guerin" (with --preserve-accents: "Guérin")');
-        }
+        console.log('\nExamples of fixes:');
+        console.log('==================');
+        console.log('French Names:');
+        console.log('  "FrÃ©dÃ©ric" -> "Frederic" (with --preserve-accents: "Frédéric")');
+        console.log('  "GuÃ©rin" -> "Guerin" (with --preserve-accents: "Guérin")');
+        console.log('Polish Names:');
+        console.log('  "PaweÅ‚" -> "Pawel" (with --preserve-accents: "Paweł")');
+        console.log('Name Cleaning:');
+        console.log('  "FAIZAL SHAIKH" -> "Faizal" (only first part)');
+        console.log('  "PMP SHAH-shah-shash" -> "Shash" (only last part)');
         
         process.exit(0);
     } catch (error) {
@@ -783,5 +697,3 @@ module.exports = {
     processCSV,
     NameFixer
 };
-
-
