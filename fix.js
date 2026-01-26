@@ -65,7 +65,7 @@ class NameFixer {
             'Ã»': 'û',  // û
             'Ã¹': 'ù',  // ù
             'Ã¼': 'ü',  // ü
-            'Ã¿': 'ÿ',  // ÿ
+            'Ãÿ': 'ÿ',  // ÿ
             
             // Uppercase
             'Ã‰': 'É',  // É
@@ -180,7 +180,7 @@ class NameFixer {
             "hon", "honorable",
             
             // Suffixes
-            "jr", "sr", "ii", "iii", "iv", "MCIM",
+            "jr", "sr", "ii", "iii", "iv",
         ];
         
         let cleaned = text;
@@ -204,11 +204,13 @@ class NameFixer {
         return cleaned;
     }
 
-    static cleanPunctuation(text) {
+    static cleanPunctuation(text, options = {}) {
         if (!text) return '';
         
-        // Remove punctuation at word boundaries (start and end of words)
-        // This handles cases like ".John", "Smith,", "O'Connor", etc.
+        const {
+            removeApostrophes = true,  // New option to control apostrophe removal
+            keepHyphens = true          // Keep hyphenated names like Jean-Claude
+        } = options;
         
         // First, normalize multiple spaces
         text = text.replace(/\s+/g, ' ');
@@ -219,18 +221,27 @@ class NameFixer {
         const cleanedWords = words.map(word => {
             if (!word) return '';
             
-            // Remove leading punctuation (.,;:!?~`'"()[]{})
-            let cleaned = word.replace(/^[.,;:!?~`'"()\[\]{}]+/, '');
+            let cleaned = word;
             
-            // Remove trailing punctuation
-            cleaned = cleaned.replace(/[.,;:!?~`'"()\[\]{}]+$/, '');
+            // Remove apostrophes if requested
+            if (removeApostrophes) {
+                cleaned = cleaned.replace(/['`´ʼʹʺʻʽʿˈˊˋ]/g, '');
+            }
             
-            // Handle hyphenated names (keep hyphen in the middle)
-            // Remove hyphen if it's at start or end
-            cleaned = cleaned.replace(/^-+|-+$/g, '');
+            // Remove other punctuation at boundaries
+            cleaned = cleaned.replace(/^[.,;:!?~"()\[\]{}]+/, '');
+            cleaned = cleaned.replace(/[.,;:!?~"()\[\]{}]+$/, '');
+            
+            // Handle hyphens
+            if (!keepHyphens) {
+                cleaned = cleaned.replace(/-/g, '');
+            } else {
+                // Only remove hyphens at start or end
+                cleaned = cleaned.replace(/^-+|-+$/g, '');
+            }
             
             return cleaned;
-        }).filter(word => word.length > 0); // Remove empty words
+        }).filter(word => word.length > 0);
         
         return cleanedWords.join(' ');
     }
@@ -277,7 +288,9 @@ class NameFixer {
             caseSensitive = false,
             capitalizeFirst = true,
             removeTitles = true,
-            cleanPunctuation: cleanPunct = true
+            cleanPunctuation: cleanPunct = true,
+            removeApostrophes = true,  // Add this new option
+            keepHyphens = true         // Add this new option
         } = options;
 
         // Step 1: Fix mojibake first - VERY IMPORTANT
@@ -290,7 +303,7 @@ class NameFixer {
         
         // Step 3: Clean punctuation if requested
         if (cleanPunct) {
-            text = this.cleanPunctuation(text);
+            text = this.cleanPunctuation(text, { removeApostrophes, keepHyphens });
         }
 
         // Step 4: Handle accents and special characters
@@ -370,7 +383,10 @@ function processCSV(inputFile, outputFile, options = {}) {
         encoding = 'utf8',
         // Options for name cleaning
         cleanFirstName = true,     // Take only first part of first name
-        cleanLastName = true       // Take only last part of last name
+        cleanLastName = true,      // Take only last part of last name
+        // New options
+        removeApostrophes = true,  // Remove apostrophes
+        keepHyphens = true         // Keep hyphens in names
     } = options;
 
     try {
@@ -411,7 +427,9 @@ function processCSV(inputFile, outputFile, options = {}) {
                 caseSensitive,
                 capitalizeFirst,
                 removeTitles,
-                cleanPunctuation
+                cleanPunctuation,
+                removeApostrophes,
+                keepHyphens
             });
             
             let last = NameFixer.normalizeToASCII(lastRaw, {
@@ -420,7 +438,9 @@ function processCSV(inputFile, outputFile, options = {}) {
                 caseSensitive,
                 capitalizeFirst,
                 removeTitles,
-                cleanPunctuation
+                cleanPunctuation,
+                removeApostrophes,
+                keepHyphens
             });
 
             // Apply first name cleaning (take only first part)
@@ -523,7 +543,8 @@ function testFrenchNames() {
             preserveAccents: true,
             removeTitles: false,
             cleanPunctuation: false,
-            capitalizeFirst: false
+            capitalizeFirst: false,
+            removeApostrophes: false
         });
         console.log(`  With accents: "${withAccents}"`);
         console.log(`  Expected with accents: "${test.expectedWithAccents}"`);
@@ -534,7 +555,8 @@ function testFrenchNames() {
             preserveAccents: false,
             removeTitles: false,
             cleanPunctuation: false,
-            capitalizeFirst: false
+            capitalizeFirst: false,
+            removeApostrophes: false
         });
         console.log(`  Without accents: "${withoutAccents}"`);
         console.log(`  Expected without accents: "${test.expectedWithoutAccents}"`);
@@ -553,17 +575,40 @@ function testAllCases() {
         { first: "JarosÅ‚aw", last: "Nowak", expectedFirst: "Jaroslaw", expectedLast: "Nowak" },
         { first: "FAIZAL SHAIKH", last: "PMP SHAH-shah-shash", expectedFirst: "Faizal", expectedLast: "Shash" },
         { first: "FAIZAL-ABAS", last: "SHUFA ABBAS SHAIKH", expectedFirst: "Faizal", expectedLast: "Shaikh" },
+        // Test apostrophe removal
+        { first: "faizalo's", last: "test", expectedFirst: "Faizalos", expectedLast: "Test" },
+        { first: "O'Connor", last: "McDonald's", expectedFirst: "Oconnor", expectedLast: "Mcdonalds" },
+        { first: "Jean-Claude", last: "Van-Damme", expectedFirst: "Jean-Claude", expectedLast: "Van-Damme" },
+        // Test with hyphens removal
+        { first: "Jean-Claude", last: "Van-Damme", expectedFirstNoHyphen: "Jeanclaude", expectedLastNoHyphen: "Vandamme" },
     ];
     
     testCases.forEach((test, index) => {
         console.log(`\nTest ${index + 1}: "${test.first} ${test.last}"`);
         
+        // Test with default options (remove apostrophes, keep hyphens)
         const first = NameFixer.cleanFirstName(NameFixer.normalizeToASCII(test.first, { preserveAccents: false }));
         const last = NameFixer.cleanLastName(NameFixer.normalizeToASCII(test.last, { preserveAccents: false }));
         
-        console.log(`  Output: "${first} ${last}"`);
-        console.log(`  Expected: "${test.expectedFirst} ${test.expectedLast}"`);
-        console.log(`  Match: ${first === test.expectedFirst && last === test.expectedLast ? '✓' : '✗'}`);
+        console.log(`  Default output: "${first} ${last}"`);
+        
+        // If this is a hyphen test, also test with hyphens removed
+        if (test.expectedFirstNoHyphen) {
+            const firstNoHyphen = NameFixer.cleanFirstName(NameFixer.normalizeToASCII(test.first, { 
+                preserveAccents: false,
+                keepHyphens: false 
+            }));
+            const lastNoHyphen = NameFixer.cleanLastName(NameFixer.normalizeToASCII(test.last, { 
+                preserveAccents: false,
+                keepHyphens: false 
+            }));
+            console.log(`  Without hyphens: "${firstNoHyphen} ${lastNoHyphen}"`);
+        }
+        
+        if (test.expectedFirst && test.expectedLast) {
+            console.log(`  Expected: "${test.expectedFirst} ${test.expectedLast}"`);
+            console.log(`  Match: ${first === test.expectedFirst && last === test.expectedLast ? '✓' : '✗'}`);
+        }
     });
 }
 
@@ -590,10 +635,13 @@ Options:
   --keep-punctuation     Keep punctuation (default: removed)
   --no-clean-firstname   Don't clean first name (keep full name) (default: cleaned)
   --no-clean-lastname    Don't clean last name (keep full name) (default: cleaned)
+  --keep-apostrophes     Keep apostrophes (default: removed)
+  --remove-hyphens       Remove hyphens (default: keep hyphens)
   --verbose              Show progress messages
   --help                 Show this help message
 
 Important Fixes:
+  - Removes apostrophes: "faizalo's" -> "faizalos"
   - French names: "JÃ©rÃ´me" -> "Jerome" (or "Jérôme" with --preserve-accents)
   - French names: "CabanÃ¨s" -> "Cabanes" (or "Cabanès" with --preserve-accents)
   - French names: "FrÃ©dÃ©ric" -> "Frederic" (or "Frédéric" with --preserve-accents)
@@ -604,6 +652,8 @@ Important Fixes:
 Examples:
   node fixer.js input.csv output.csv
   node fixer.js input.csv output.csv --preserve-accents
+  node fixer.js input.csv output.csv --keep-apostrophes
+  node fixer.js input.csv output.csv --remove-hyphens
   node fixer.js input.csv output.csv --verbose
         `);
         process.exit(args.includes('--help') ? 0 : 1);
@@ -622,6 +672,9 @@ Examples:
         // Name cleaning options
         cleanFirstName: !args.includes('--no-clean-firstname'),
         cleanLastName: !args.includes('--no-clean-lastname'),
+        // New options
+        removeApostrophes: !args.includes('--keep-apostrophes'),
+        keepHyphens: !args.includes('--remove-hyphens'),
         logProgress: args.includes('--verbose')
     };
 
@@ -635,7 +688,9 @@ Examples:
             removeTitles: options.removeTitles,
             cleanPunctuation: options.cleanPunctuation,
             cleanFirstName: options.cleanFirstName,
-            cleanLastName: options.cleanLastName
+            cleanLastName: options.cleanLastName,
+            removeApostrophes: options.removeApostrophes,
+            keepHyphens: options.keepHyphens
         });
 
         const count = processCSV(inputFile, outputFile, options);
@@ -645,15 +700,21 @@ Examples:
         // Show sample of what was done
         console.log('\nExamples of fixes:');
         console.log('==================');
-        console.log('French Names:');
+        console.log('Apostrophe Removal:');
+        console.log('  "faizalo\'s" -> "Faizalos"');
+        console.log('  "O\'Connor" -> "Oconnor"');
+        console.log('  (use --keep-apostrophes to preserve apostrophes)');
+        console.log('\nFrench Names:');
         console.log('  "JÃ©rÃ´me" -> "Jerome" (with --preserve-accents: "Jérôme")');
         console.log('  "CabanÃ¨s" -> "Cabanes" (with --preserve-accents: "Cabanès")');
         console.log('  "FrÃ©dÃ©ric" -> "Frederic" (with --preserve-accents: "Frédéric")');
-        console.log('Polish Names:');
+        console.log('\nPolish Names:');
         console.log('  "PaweÅ‚" -> "Pawel" (with --preserve-accents: "Paweł")');
-        console.log('Name Cleaning:');
+        console.log('\nName Cleaning:');
         console.log('  "FAIZAL SHAIKH" -> "Faizal" (only first part)');
         console.log('  "PMP SHAH-shah-shash" -> "Shash" (only last part)');
+        console.log('\nHyphen Handling:');
+        console.log('  "Jean-Claude" -> "Jean-Claude" (use --remove-hyphens: "Jeanclaude")');
         
         process.exit(0);
     } catch (error) {
@@ -666,4 +727,3 @@ module.exports = {
     processCSV,
     NameFixer
 };
-
