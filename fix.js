@@ -5,7 +5,7 @@ const { parse } = require('csv-parse/sync');
 const { stringify } = require('csv-stringify/sync');
 
 class NameFixer {
-    // NEW: Function to clean first_name (take only the first part)
+    // Function to clean first_name (take only the first part)
     static cleanFirstName(firstName) {
         if (!firstName) return firstName;
         
@@ -23,15 +23,16 @@ class NameFixer {
         return name;
     }
 
-    // NEW: Function to clean last_name (take only the last part)
+    // Function to clean last_name (take only the last part - MODIFIED)
     static cleanLastName(lastName) {
         if (!lastName) return lastName;
         
         // Convert to string and trim
         const name = String(lastName).trim();
         
-        // Split by space and take the last part
-        const parts = name.split(/\s+/);
+        // Split by space OR hyphen and take the last part
+        // This handles cases like: "PMP SHAH-shah-shash" -> "shash"
+        const parts = name.split(/[\s\-]+/);
         
         // Return the last part, capitalized properly
         if (parts.length > 0) {
@@ -169,7 +170,7 @@ class NameFixer {
             // Corporate titles
             "ceo", "cto", "cfo", "coo", "cio",
             "vp", "svp", "evp", "avp",
-            "director", "manager", "lead", "head", "PMP", "PG", "Dip", "MA", // FIXED SYNTAX ERROR HERE
+            "director", "manager", "lead", "head", "PMP", "PG", "Dip", "MA",
             
             // Nobility / Special
             "his excellency", "her excellency",
@@ -350,7 +351,7 @@ function processCSV(inputFile, outputFile, options = {}) {
         cleanPunctuation = true,
         logProgress = false,
         encoding = 'utf8',
-        // NEW: Options for name cleaning
+        // Options for name cleaning
         cleanFirstName = true,     // Take only first part of first name
         cleanLastName = true       // Take only last part of last name
     } = options;
@@ -381,8 +382,10 @@ function processCSV(inputFile, outputFile, options = {}) {
         });
 
         const processed = records.map((r, index) => {
+            // Get original values
             const firstRaw = r.first_name || r.firstName || r.FirstName || r.First_Name || r.first || '';
             const lastRaw = r.last_name || r.lastName || r.LastName || r.Last_Name || r.last || '';
+            const companyRaw = r.company_domain || r.company || r.domain || '';
 
             // Apply normalization with all options
             let first = NameFixer.normalizeToASCII(firstRaw, {
@@ -403,15 +406,18 @@ function processCSV(inputFile, outputFile, options = {}) {
                 cleanPunctuation
             });
 
-            // NEW: Apply first name cleaning (take only first part)
+            // Apply first name cleaning (take only first part)
             if (cleanFirstName) {
                 first = NameFixer.cleanFirstName(first);
             }
 
-            // NEW: Apply last name cleaning (take only last part)
+            // Apply last name cleaning (take only last part)
             if (cleanLastName) {
                 last = NameFixer.cleanLastName(last);
             }
+
+            // Clean company domain if present
+            const company = companyRaw ? String(companyRaw).trim().toLowerCase() : '';
 
             if (logProgress && index < 5) {
                 console.log(`Sample ${index + 1}: "${firstRaw} ${lastRaw}" -> "${first} ${last}"`);
@@ -421,6 +427,7 @@ function processCSV(inputFile, outputFile, options = {}) {
                 ...r,
                 first_name: first,
                 last_name: last,
+                company_domain: company
             };
         });
 
@@ -490,93 +497,85 @@ function testFrenchCharacters() {
         
         console.log("---");
     });
-
-    // Test your specific case in detail
-    console.log("\nDetailed test for your specific case:");
-    console.log("=====================================\n");
-    
-    const specificCase = "A‰douard Mandon";
-    console.log(`Original: "${specificCase}"`);
-    console.log(`Char codes:`);
-    
-    for (let i = 0; i < specificCase.length; i++) {
-        console.log(`  [${i}] '${specificCase[i]}' = ${specificCase.charCodeAt(i).toString(16)}`);
-    }
-    
-    const fixed = NameFixer.fixMojibake(specificCase);
-    console.log(`\nAfter fixMojibake: "${fixed}"`);
-    
-    const final = NameFixer.normalizeToASCII(specificCase, {
-        capitalizeFirst: true,
-        preserveAccents: false,
-        removeTitles: false,
-        cleanPunctuation: false
-    });
-    
-    console.log(`Final result: "${final}"`);
-    console.log(`Expected: "Edouard Mandon"`);
 }
 
-// NEW: Test name cleaning functionality
-function testNameCleaning() {
-    console.log("\n\nTesting Name Cleaning Functions:");
-    console.log("================================\n");
+// Test name cleaning functionality with your specific cases
+function testYourSpecificCases() {
+    console.log("\n\nTesting Your Specific Cases:");
+    console.log("============================\n");
 
-    // Test first name cleaning
-    console.log("First Name Cleaning Tests:");
-    const firstNames = [
-        "FAIZAL SHAIKH",
-        "FAIZAL-SHAIKH",
-        "SHAHID SHAIKH SHAIKH SHAIKH",
-        "john doe smith",
-        "MARY-JANE PARKER",
-        "  ALICE  BROWN  ",
-        "single",
-        "KARAN-SINGH KAPOOR",
-        "JOHN"
+    // Test cases from your input
+    const testCases = [
+        { input: "FAIZAL-ABAS", expected: "Faizal" },
+        { input: "FAIZAL ABAS", expected: "Faizal" },
+        { input: "FAIZAL ABAS jghjghhg", expected: "Faizal" },
+        { input: "faizal", expected: "Faizal" },
+        { input: "prof 'shaif", expected: "Shaif" },
+        { input: "shouf.", expected: "Shouf" },
+        { input: "shah jr", expected: "Shah" },
+        { input: "cp faizal", expected: "Faizal" },
+        { input: "faizal PMP", expected: "Faizal" },
+        { input: "OBE FAIZAL", expected: "Faizal" }
     ];
-    
-    firstNames.forEach((name, index) => {
-        const cleaned = NameFixer.cleanFirstName(name);
-        console.log(`${index + 1}. "${name}" -> "${cleaned}"`);
+
+    console.log("First Name Tests:");
+    testCases.forEach((test, index) => {
+        const cleaned = NameFixer.cleanFirstName(test.input);
+        const status = cleaned === test.expected ? "✓" : "✗";
+        console.log(`${index + 1}. ${status} "${test.input}" -> "${cleaned}" (Expected: "${test.expected}")`);
     });
 
-    console.log("\nLast Name Cleaning Tests:");
-    const lastNames = [
-        "SHUFA ABBAS SHAIKH",
-        "FAIZAK ABBAS KHAN",
-        "PATEL",
-        "van der linde",
-        "  SMITH  JONES  ",
-        "DE SILVA PERERA",
-        "KUMAR SINGH",
-        "KHAN"
+    console.log("\nLast Name Tests:");
+    const lastNameTests = [
+        { input: "PMP SHAH", expected: "Shah" },
+        { input: "PMP SHAH shah shash", expected: "Shash" },
+        { input: "PMP SHAH-shah-shash", expected: "Shash" },
+        { input: "shaikh", expected: "Shaikh" },
+        { input: "khan", expected: "Khan" },
+        { input: "SHAH-shah-shash", expected: "Shash" },
+        { input: "SHUFA ABBAS SHAIKH", expected: "Shaikh" },
+        { input: "FAIZAK ABBAS KHAN", expected: "Khan" }
     ];
-    
-    lastNames.forEach((name, index) => {
-        const cleaned = NameFixer.cleanLastName(name);
-        console.log(`${index + 1}. "${name}" -> "${cleaned}"`);
+
+    lastNameTests.forEach((test, index) => {
+        const cleaned = NameFixer.cleanLastName(test.input);
+        const status = cleaned === test.expected ? "✓" : "✗";
+        console.log(`${index + 1}. ${status} "${test.input}" -> "${cleaned}" (Expected: "${test.expected}")`);
     });
 
-    console.log("\nComplete Name Processing Tests:");
-    const testRecords = [
-        { first_name: "FAIZAL SHAIKH", last_name: "SHUFA ABBAS SHAIKH" },
-        { first_name: "FAIZAL-SHAIKH", last_name: "FAIZAK ABBAS KHAN" },
-        { first_name: "SHAHID SHAIKH SHAIKH SHAIKH", last_name: "JOHN MATHEWS PATEL" },
-        { first_name: "JOHN", last_name: "DOE" },
-        { first_name: "MARY-JANE", last_name: "PARKER-WATSON BROWN" }
+    console.log("\nComplete Processing Tests:");
+    const completeTests = [
+        {
+            first: "FAIZAL-ABAS",
+            last: "PMP SHAH-shah-shash",
+            expectedFirst: "Faizal",
+            expectedLast: "Shash"
+        },
+        {
+            first: "FAIZAL ABAS jghjghhg",
+            last: "PMP SHAH-shah-shash",
+            expectedFirst: "Faizal",
+            expectedLast: "Shash"
+        },
+        {
+            first: "faizal PMP",
+            last: "PMP SHAH",
+            expectedFirst: "Faizal",
+            expectedLast: "Shah"
+        }
     ];
-    
-    testRecords.forEach((record, index) => {
-        const first = NameFixer.cleanFirstName(record.first_name);
-        const last = NameFixer.cleanLastName(record.last_name);
-        console.log(`${index + 1}. "${record.first_name} ${record.last_name}" -> "${first} ${last}"`);
+
+    completeTests.forEach((test, index) => {
+        const first = NameFixer.cleanFirstName(test.first);
+        const last = NameFixer.cleanLastName(test.last);
+        const status = (first === test.expectedFirst && last === test.expectedLast) ? "✓" : "✗";
+        console.log(`${index + 1}. ${status} "${test.first} ${test.last}" -> "${first} ${last}" (Expected: "${test.expectedFirst} ${test.expectedLast}")`);
     });
 }
 
 // Run tests
 testFrenchCharacters();
-testNameCleaning();
+testYourSpecificCases();
 
 // CLI interface
 if (require.main === module) {
@@ -607,8 +606,8 @@ Examples:
   node fixer.js input.csv output.csv --no-clean-firstname --no-clean-lastname
 
 Name Cleaning Behavior:
-  - First name: Takes only first part (FAIZAL SHAIKH -> Faizal)
-  - Last name: Takes only last part (SHUFA ABBAS SHAIKH -> Shaikh)
+  - First name: Takes only first part (FAIZAL SHAIKH -> Faizal, FAIZAL-SHAIKH -> Faizal)
+  - Last name: Takes only last part after splitting by space OR hyphen (PMP SHAH-shah-shash -> Shash)
 
 Note: Now properly handles French characters like É, é, etc.
       "A‰douard" will become "Edouard" (or "Édouard" with --preserve-accents)
@@ -626,7 +625,7 @@ Note: Now properly handles French characters like É, é, etc.
         capitalizeFirst: !args.includes('--no-capitalize'),
         removeTitles: !args.includes('--keep-titles'),
         cleanPunctuation: !args.includes('--keep-punctuation'),
-        // NEW: Name cleaning options
+        // Name cleaning options
         cleanFirstName: !args.includes('--no-clean-firstname'),
         cleanLastName: !args.includes('--no-clean-lastname'),
         logProgress: args.includes('--verbose')
@@ -656,8 +655,9 @@ Note: Now properly handles French characters like É, é, etc.
             console.log('First Name: "FAIZAL SHAIKH" -> "Faizal" (only first part)');
             console.log('First Name: "FAIZAL-SHAIKH" -> "Faizal" (only first part)');
             console.log('First Name: "SHAHID SHAIKH SHAIKH SHAIKH" -> "Shahid" (only first part)');
-            console.log('Last Name: "SHUFA ABBAS SHAIKH" -> "Shaikh" (only last part)');
-            console.log('Last Name: "FAIZAK ABBAS KHAN" -> "Khan" (only last part)');
+            console.log('Last Name: "SHUFA ABBAS SHAIKH" -> "Shaikh" (only last part after space)');
+            console.log('Last Name: "FAIZAK ABBAS KHAN" -> "Khan" (only last part after space)');
+            console.log('Last Name: "PMP SHAH-shah-shash" -> "Shash" (only last part after space OR hyphen)');
         }
         
         process.exit(0);
