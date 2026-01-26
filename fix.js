@@ -93,7 +93,8 @@ class NameFixer {
             
             // Special handling for FrÃ©dÃ©ric
             'Ã©': 'é',  // Small e with acute
-            'Ã¨': 'è',  // Small e with grave
+            'Ã¨': 'è',// Small e with grave
+            'Å‚': 'l',
         };
 
         // Special handling for the specific pattern you mentioned
@@ -782,3 +783,4 @@ module.exports = {
     processCSV,
     NameFixer
 };
+
