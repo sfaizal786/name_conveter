@@ -180,7 +180,7 @@ class NameFixer {
             "hon", "honorable",
             
             // Suffixes
-            "jr", "sr", "ii", "iii", "iv",
+            "jr", "sr", "ii", "iii", "iv", "MCIM",
         ];
         
         let cleaned = text;
@@ -666,3 +666,4 @@ module.exports = {
     processCSV,
     NameFixer
 };
+
