@@ -112,7 +112,7 @@ class NameFixer {
             "architect", "arch",
             
             // Finance
-            "ca", "cpa", "cfa", "cma", "acca", "cs",
+            "ca", "cpa", "cfa", "cma", "acca", "cs", "cp",
             
             // Science / Research
             "scientist", "researcher",
@@ -542,3 +542,4 @@ module.exports = {
     processCSV,
     NameFixer
 };
+
