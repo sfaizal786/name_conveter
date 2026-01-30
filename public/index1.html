@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>CSV Email Generator — Modern UI</title>
+  <title>Excel Email Generator — Modern UI</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
   <style>
     body {
@@ -186,11 +186,11 @@
 </head>
 <body>
   <div class="container">
-    <h1>CSV Email Generator</h1>
-    <p class="lead">Upload a CSV with <strong>first_name</strong>, <strong>last_name</strong>, and <strong>company_domain</strong>. We'll generate emails based on presets or your custom format.</p>
+    <h1>Excel Email Generator</h1>
+    <p class="lead">Upload an Excel (.xlsx) file with <strong>first_name</strong>, <strong>last_name</strong>, and <strong>company_domain</strong>. We'll generate emails based on presets or your custom format.</p>
 
-    <label>Upload CSV</label>
-    <input id="csvFile" type="file" accept=".csv,text/csv" />
+    <label>Upload Excel File (.xlsx)</label>
+    <input id="excelFile" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
     <div id="parsedHeaders" class="meta">No file uploaded yet.</div>
 
     <div class="row">
@@ -201,7 +201,7 @@
         <div class="small">Placeholders: <code>{first}</code>, <code>{last}</code>, <code>{f}</code>, <code>{l}</code>, <code>{domain}</code></div>
       </div>
       <div class="col">
-        <div class="meta">Using <code>company_domain</code> column from CSV.</div>
+        <div class="meta">Using <code>company_domain</code> column from Excel.</div>
 
         <label style="margin-top:12px">Multiple Presets</label>
         <div class="preset-list" id="presetCheckboxes"></div>
@@ -215,7 +215,7 @@
 
     <div class="controls">
       <button id="generateBtn">Generate</button>
-      <button id="downloadBtn" class="secondary">Download CSV</button>
+      <button id="downloadBtn" class="secondary">Download Excel (.xlsx)</button>
       <button id="resetBtn" class="ghost">Reset</button>
     </div>
 
@@ -237,11 +237,12 @@
     </div>
 
     <div style="margin-top:24px;font-size:12px;color:#9ca3af">
-      This tool uses PapaParse (CDN) to parse CSV files in-browser.
+      This tool uses SheetJS (xlsx) to process Excel files in-browser.
     </div>
   </div>
 
-  <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
+  <!-- Include SheetJS library for Excel processing -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
   <script>
     const PRESETS = [
       { id: 'first_dot_last', label: '{first}.{last}@{domain}', format: '{first}.{last}@{domain}' },
@@ -288,8 +289,10 @@
 
     let parsedRows = [];
     let parsedHeaders = [];
+    let originalWorkbook = null;
+    let originalSheetName = '';
 
-    const fileInput = document.getElementById('csvFile');
+    const fileInput = document.getElementById('excelFile');
     const parsedHeadersEl = document.getElementById('parsedHeaders');
     const presetSelect = document.getElementById('presetSelect');
     const formatInput = document.getElementById('formatInput');
@@ -315,7 +318,6 @@
         cb.type = 'checkbox';
         cb.value = p.format;
         cb.dataset.id = p.id;
-        cb.dataset.label = p.label;
         const span = document.createElement('span');
         span.textContent = p.label;
         wrap.appendChild(cb);
@@ -330,54 +332,81 @@
 
     initPresets();
 
-    fileInput.addEventListener('change', (e) => {
+    fileInput.addEventListener('change', async (e) => {
       errorEl.textContent = '';
       const file = e.target.files && e.target.files[0];
       if (!file) return;
-      Papa.parse(file, {
-        header: true,
-        skipEmptyLines: true,
-        complete(results) {
-          if (results.errors && results.errors.length) {
-            errorEl.textContent = results.errors[0].message || '';
-          }
-          parsedRows = results.data || [];
-          parsedHeaders = results.meta?.fields || [];
-          parsedHeadersEl.textContent = parsedHeaders.length ? parsedHeaders.join(', ') : 'No headers found';
-          previewArea.innerHTML = 'File parsed. Click Generate to create emails.';
-        },
-        error(err) {
-          errorEl.textContent = 'Error parsing CSV: ' + String(err);
+      
+      if (!file.name.endsWith('.xlsx') && !file.type.includes('spreadsheet')) {
+        errorEl.textContent = 'Please upload an Excel (.xlsx) file.';
+        return;
+      }
+
+      try {
+        const data = await file.arrayBuffer();
+        const workbook = XLSX.read(data, { type: 'array' });
+        originalWorkbook = workbook;
+        
+        // Get the first sheet
+        const sheetName = workbook.SheetNames[0];
+        originalSheetName = sheetName;
+        const worksheet = workbook.Sheets[sheetName];
+        
+        // Convert to JSON
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+        
+        if (jsonData.length === 0) {
+          errorEl.textContent = 'Excel file is empty.';
+          return;
         }
-      });
+        
+        // First row is headers
+        parsedHeaders = jsonData[0].map(h => String(h).trim());
+        parsedRows = [];
+        
+        // Convert rows to objects
+        for (let i = 1; i < jsonData.length; i++) {
+          const row = jsonData[i];
+          const rowObj = {};
+          parsedHeaders.forEach((header, index) => {
+            rowObj[header] = row[index] || '';
+          });
+          parsedRows.push(rowObj);
+        }
+        
+        parsedHeadersEl.textContent = parsedHeaders.length ? parsedHeaders.join(', ') : 'No headers found';
+        previewArea.innerHTML = 'Excel file parsed. Click Generate to create emails.';
+        
+      } catch (err) {
+        console.error('Error parsing Excel:', err);
+        errorEl.textContent = 'Error parsing Excel file: ' + String(err);
+      }
     });
 
     generateBtn.addEventListener('click', () => {
       errorEl.textContent = '';
       if (!parsedRows.length) {
-        errorEl.textContent = 'No rows to process. Please upload a CSV first.';
+        errorEl.textContent = 'No rows to process. Please upload an Excel file first.';
         return;
       }
 
       const nameFields = findNameFields(parsedHeaders);
       if (!nameFields.first || !nameFields.last || !nameFields.domain) {
-        errorEl.textContent = "CSV must include 'first_name', 'last_name', and 'company_domain' headers.";
+        errorEl.textContent = "Excel file must include 'first_name', 'last_name', and 'company_domain' columns.";
         return;
       }
 
-      const checked = Array.from(presetCheckboxes.querySelectorAll('input[type=checkbox]:checked'));
-      const formatsToUse = checked.length ? checked : [{ value: formatInput.value.trim(), dataset: { id: 'custom', label: 'Custom' } }];
+      const checked = Array.from(presetCheckboxes.querySelectorAll('input[type=checkbox]:checked')).map(i => i.value);
+      const formatsToUse = checked.length ? checked : [ formatInput.value.trim() ];
 
       const generated = parsedRows.map(r => {
         const first = r[nameFields.first] ?? '';
         const last = r[nameFields.last] ?? '';
         const domain = r[nameFields.domain] ?? '';
         const out = { ...r };
-        
-        formatsToUse.forEach(cb => {
-          // Use a clean column name based on the preset label
-          const colName = 'email_' + cb.dataset.id;
-          out[colName] = generateEmailFromFormat(cb.value, first, last, domain);
+        formatsToUse.forEach(fmt => {
+          const col = 'email_' + fmt.replace(/[^a-z0-9]/gi, '_').replace(/_+/g, '_');
+          out[col] = generateEmailFromFormat(fmt, first, last, domain);
         });
         return out;
       });
@@ -406,24 +435,47 @@
         return;
       }
       try {
-        const csv = Papa.unparse(parsedRows);
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        // Create a new worksheet from the generated data
+        const worksheet = XLSX.utils.json_to_sheet(parsedRows);
+        
+        // Create a new workbook or use the original
+        let workbook;
+        if (originalWorkbook) {
+          workbook = originalWorkbook;
+          // Update the original sheet with new data
+          workbook.Sheets[originalSheetName] = worksheet;
+        } else {
+          workbook = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(workbook, worksheet, "Emails");
+        }
+        
+        // Generate Excel file
+        const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+        
+        // Create and download the file
+        const blob = new Blob([excelBuffer], { 
+          type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+        });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'emails_generated.csv';
+        a.download = 'emails_generated.xlsx';
         document.body.appendChild(a);
         a.click();
         a.remove();
         URL.revokeObjectURL(url);
+        
       } catch (e) {
-        errorEl.textContent = 'Failed to prepare CSV for download: ' + String(e);
+        console.error('Error creating Excel:', e);
+        errorEl.textContent = 'Failed to create Excel file: ' + String(e);
       }
     });
 
     resetBtn.addEventListener('click', () => {
       parsedRows = [];
       parsedHeaders = [];
+      originalWorkbook = null;
+      originalSheetName = '';
       fileInput.value = '';
       parsedHeadersEl.textContent = 'No file uploaded yet.';
       previewArea.innerHTML = 'No preview. Click Generate.';
