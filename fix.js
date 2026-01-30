@@ -2,7 +2,7 @@
 const fs = require('fs');
 const iconv = require('iconv-lite');
 const { parse } = require('csv-parse/sync');
-const { stringify } = require('csv-stringify/sync');
+const XLSX = require('xlsx');
 
 class NameFixer {
     // Function to clean first_name (take only the first part)
@@ -468,17 +468,17 @@ function processCSV(inputFile, outputFile, options = {}) {
             };
         });
 
-        const csvOutput = stringify(processed, {
-            header: true,
-            quoted: true,
-            quoted_empty: true
-        });
-
-        fs.writeFileSync(outputFile, '\uFEFF' + csvOutput, 'utf8');
+        // Create XLSX workbook
+        const workbook = XLSX.utils.book_new();
+        const worksheet = XLSX.utils.json_to_sheet(processed);
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Sheet1');
+        
+        // Write to XLSX file
+        XLSX.writeFile(workbook, outputFile);
 
         if (logProgress) {
             console.log(`Processed ${processed.length} records`);
-            console.log(`Output saved to: ${outputFile}`);
+            console.log(`Output saved to: ${outputFile} (XLSX format)`);
         }
 
         return processed.length;
@@ -624,7 +624,7 @@ if (require.main === module) {
         console.log(`
 CSV Name Fixer - Process and normalize names in CSV files
 
-Usage: node fixer.js <input.csv> <output.csv> [options]
+Usage: node fixer.js <input.csv> <output.xlsx> [options]
 
 Options:
   --preserve-accents     Keep accented characters (default: false)
@@ -650,11 +650,11 @@ Important Fixes:
   - Last name: Takes only last part (PMP SHAH-shah-shash -> Shash)
 
 Examples:
-  node fixer.js input.csv output.csv
-  node fixer.js input.csv output.csv --preserve-accents
-  node fixer.js input.csv output.csv --keep-apostrophes
-  node fixer.js input.csv output.csv --remove-hyphens
-  node fixer.js input.csv output.csv --verbose
+  node fixer.js input.csv output.xlsx
+  node fixer.js input.csv output.xlsx --preserve-accents
+  node fixer.js input.csv output.xlsx --keep-apostrophes
+  node fixer.js input.csv output.xlsx --remove-hyphens
+  node fixer.js input.csv output.xlsx --verbose
         `);
         process.exit(args.includes('--help') ? 0 : 1);
     }
@@ -695,7 +695,7 @@ Examples:
 
         const count = processCSV(inputFile, outputFile, options);
         console.log(`✅ Successfully processed ${count} records`);
-        console.log(`📁 Output file: ${outputFile}`);
+        console.log(`📁 Output file: ${outputFile} (Excel XLSX format)`);
         
         // Show sample of what was done
         console.log('\nExamples of fixes:');
