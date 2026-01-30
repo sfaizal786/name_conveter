@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Name Converter  And Topology Maker By Faizal</title>
+  <title>Name Converter And Topology Maker By Faizal</title>
   <style>
     * {
       box-sizing: border-box;
@@ -11,7 +11,7 @@
     }
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-       background: linear-gradient(135deg, #6b21a8, #3b82f6);
+      background: linear-gradient(135deg, #6b21a8, #3b82f6);
       color: #ebf7f3;
       display: flex;
       flex-direction: column;
@@ -32,7 +32,6 @@
       font-size: 0.9rem;
       color: #555;
       margin-bottom: 1.5rem;
-      
     }
 
     section {
@@ -52,7 +51,7 @@
       border-radius: 6px;
       border: 1px solid #ccc;
       font-size: 16px;
-      color: rebeccapurple ;
+      color: rebeccapurple;
     }
 
     button {
@@ -83,7 +82,6 @@
       section {
         padding: 1.5rem;
       }
-
       button {
         width: 100%;
       }
@@ -92,12 +90,12 @@
 </head>
 <body>
   <h1>Name Converter And Topology Maker By Faizal</h1>
-  <caption>(Only CSV with headers: first_name, last_name and company_domain — case sensitive)</caption>
+  <caption>(Only CSV with headers: first_name, last_name and company_domain)</caption>
 
   <section>
     <form id="csvForm" enctype="multipart/form-data">
       <input type="file" name="file" accept=".csv" required>
-      <button type="submit">Fix CSV & Download and go for Topology</button>
+      <button type="submit">Fix CSV & Download XLSX</button>
     </form>
     <div id="status"></div>
   </section>
@@ -123,24 +121,25 @@
         const res = await fetch('/fix-csv', { method: 'POST', body: formData });
         if (!res.ok) throw new Error('Upload failed');
 
+        // Get the filename for download
+        const originalName = fileInput.files[0].name;
+        const baseName = originalName.replace(/\.[^/.]+$/, ""); // Remove extension
+        
         const blob = await res.blob();
         const url = window.URL.createObjectURL(blob);
 
-        // Trigger file download
+        // Create download link for XLSX file
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'fixed_' + fileInput.files[0].name;
+        a.download = `fixed_${baseName}.xlsx`;
         document.body.appendChild(a);
         a.click();
         a.remove();
 
-        // Delay redirect slightly to allow download
-        setTimeout(() => {
-          window.URL.revokeObjectURL(url);
-          window.location.href = './index1.html';
-        }, 200); // 200ms delay to ensure download starts
-
-        status.innerText = '✅ CSV fixed and downloading...';
+        // Clean up
+       setTimeout(() => { 
+        window.URL.revokeObjectURL(url);
+        window.location.href = './index1.html'; }, 200); // 200ms delay to ensure download starts status.innerText = '✅ csc fixed and xslx downloading...';
 
       } catch (err) {
         console.error(err);
