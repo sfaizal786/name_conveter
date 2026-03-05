@@ -19,7 +19,7 @@
     }
 
     .container {
-      max-width: 960px;
+      max-width: 1200px;
       margin: auto;
       background: linear-gradient(135deg, #bcc0e5, #384253);
       padding: 32px 40px;
@@ -114,6 +114,13 @@
       opacity: 0.9;
     }
 
+    .preset-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      margin-top: 8px;
+    }
+
     .preset-item {
       display: flex;
       align-items: center;
@@ -125,11 +132,8 @@
       font-size: 14px;
     }
 
-    .preset-list {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-top: 8px;
+    .preset-item:hover {
+      background: #e5e7eb;
     }
 
     .meta {
@@ -144,31 +148,40 @@
       margin-top: 12px;
     }
 
+    .success {
+      color: #10b981;
+      font-size: 14px;
+      margin-top: 12px;
+    }
+
     .preview-box {
       margin-top: 20px;
       border: 1px solid #e5e7eb;
       border-radius: 8px;
       padding: 12px;
       overflow-x: auto;
-      max-height: 360px;
+      max-height: 500px;
       background: #fdfdfd;
     }
 
     table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 13px;
+      font-size: 12px;
     }
 
     th, td {
-      padding: 8px 12px;
+      padding: 6px 8px;
       border-bottom: 1px solid #e5e7eb;
       text-align: left;
+      white-space: nowrap;
     }
 
     thead th {
       background: #f3f4f6;
       font-weight: 600;
+      position: sticky;
+      top: 0;
     }
 
     ul {
@@ -182,62 +195,93 @@
       font-size: 13px;
       color: #6b7280;
     }
+
+    .column-count {
+      font-weight: 600;
+      color: #2563eb;
+      margin-left: 8px;
+      background: white;
+      padding: 2px 8px;
+      border-radius: 12px;
+    }
+
+    .placeholder-info {
+      background: #f3f4f6;
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-size: 13px;
+    }
+
+    .placeholder-code {
+      background: #e5e7eb;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 12px;
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>Excel Email Generator</h1>
-    <p class="lead">Upload an Excel (.xlsx) file with <strong>first_name</strong>, <strong>last_name</strong>, and <strong>company_domain</strong>. We'll generate emails based on presets or your custom format.</p>
+    <p class="lead">Upload an Excel (.xlsx) file with <strong>first_name</strong>, <strong>last_name</strong>, and <strong>company_domain</strong>. Select the email formats you want to generate.</p>
+
+    <div class="placeholder-info">
+      <strong>Placeholders:</strong> 
+      <span class="placeholder-code">{first}</span> (first name), 
+      <span class="placeholder-code">{last}</span> (last name), 
+      <span class="placeholder-code">{f}</span> (first initial), 
+      <span class="placeholder-code">{l}</span> (last initial), 
+      <span class="placeholder-code">{last2}</span> (first 2 chars of last name), 
+      <span class="placeholder-code">{domain}</span> (company domain)
+    </div>
 
     <label>Upload Excel File (.xlsx)</label>
     <input id="excelFile" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
     <div id="parsedHeaders" class="meta">No file uploaded yet.</div>
 
-    <div class="row">
-      <div class="col">
-        <label>Email Format</label>
-        <select id="presetSelect"></select>
-        <input id="formatInput" type="text" value="{first}.{last}@{domain}" placeholder="Custom format e.g. {first}.{last}@{domain}" />
-        <div class="small">Placeholders: <code>{first}</code>, <code>{last}</code>, <code>{f}</code>, <code>{l}</code>, <code>{last2}</code> (first 2 chars), <code>{domain}</code></div>
-      </div>
-      <div class="col">
-        <div class="meta">Using <code>company_domain</code> column from Excel.</div>
+    <div style="margin-top: 24px;">
+      <label style="display: flex; align-items: center;">
+        Select Email Formats (12 topologies)
+        <span id="selectedCount" class="column-count">0/12 selected</span>
+      </label>
+      <div class="preset-grid" id="presetCheckboxes"></div>
 
-        <label style="margin-top:12px">Multiple Presets</label>
-        <div class="preset-list" id="presetCheckboxes"></div>
-
-        <div style="margin-top:8px" class="small">
-          <button id="selectAllPresets">Select all</button>
-          <button id="clearPresets">Clear</button>
-        </div>
+      <div style="margin-top:12px; display: flex; gap: 8px;">
+        <button id="selectAllPresets" class="ghost" style="flex:1">Select all 12</button>
+        <button id="clearPresets" class="ghost" style="flex:1">Clear all</button>
       </div>
     </div>
 
     <div class="controls">
-      <button id="generateBtn">Generate</button>
+      <button id="generateBtn">Generate Emails</button>
       <button id="downloadBtn" class="secondary">Download Excel (.xlsx)</button>
       <button id="resetBtn" class="ghost">Reset</button>
     </div>
 
-    <div id="error" class="error" role="status" aria-live="polite"></div>
+    <div id="message" class="error" role="status" aria-live="polite"></div>
 
     <h3 style="margin-top:24px;margin-bottom:8px">Preview (First 20 Rows)</h3>
     <div class="preview-box">
-      <div id="previewArea">No preview. Click Generate.</div>
+      <div id="previewArea">No preview. Click Generate Emails.</div>
     </div>
 
     <div style="margin-top:24px;font-size:13px;color:#666">
-      <strong>Example formats:</strong>
+      <strong>All 12 email formats (each with unique column name):</strong>
       <ul>
-        <li><code>{first}.{last}@{domain}</code> → john.doe@example.com</li>
-        <li><code>{f}{last}@{domain}</code> → jdoe@example.com</li>
-        <li><code>{first}_{last}@{domain}</code> → john_doe@example.com</li>
-        <li><code>{first}{l}@{domain}</code> → johnd@example.com</li>
-        <li><code>{first}{last2}@{domain}</code> → faizalsh@example.com (first name + first 2 letters of last name)</li>
-        <li><code>{f}.{last}@{domain}</code> → f.shaikh@example.com</li>
-        <li><code>{first}.{l}@{domain}</code> → faizal.s@example.com</li>
-        <li><code>{last}.{first}@{domain}</code> → shaikh.faizal@example.com</li>
-        <li><code>{f}{l}@{domain}</code> → fs@example.com</li>
+        <li><code>email_first_last_dot</code> → {first}.{last}@{domain} → faizal.shaikh@example.com</li>
+        <li><code>email_f_last</code> → {f}{last}@{domain} → fshaikh@example.com</li>
+        <li><code>email_first_underscore_last</code> → {first}_{last}@{domain} → faizal_shaikh@example.com</li>
+        <li><code>email_first_l</code> → {first}{l}@{domain} → faizals@example.com</li>
+        <li><code>email_last_dot_first</code> → {last}.{first}@{domain} → shaikh.faizal@example.com</li>
+        <li><code>email_first</code> → {first}@{domain} → faizal@example.com</li>
+        <li><code>email_last</code> → {last}@{domain} → shaikh@example.com</li>
+        <li><code>email_first_last2</code> → {first}{last2}@{domain} → faizalsh@example.com</li>
+        <li><code>email_f_dot_last</code> → {f}.{last}@{domain} → f.shaikh@example.com</li>
+        <li><code>email_first_dot_l</code> → {first}.{l}@{domain} → faizal.s@example.com</li>
+        <li><code>email_f_l</code> → {f}{l}@{domain} → fs@example.com</li>
+        <li><code>email_last_dot_f</code> → {last}.{f}@{domain} → shaikh.f@example.com</li>
       </ul>
     </div>
 
@@ -249,20 +293,80 @@
   <!-- Include SheetJS library for Excel processing -->
   <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
   <script>
+    // Define the 12 unique presets with unique column names
     const PRESETS = [
-      { id: 'first_dot_last', label: '{first}.{last}@{domain}', format: '{first}.{last}@{domain}' },
-      { id: 'f_last', label: '{f}{last}@{domain}', format: '{f}{last}@{domain}' },
-      { id: 'first_underscore_last', label: '{first}_{last}@{domain}', format: '{first}_{last}@{domain}' },
-      { id: 'first_last_initial', label: '{first}{l}@{domain}', format: '{first}{l}@{domain}' },
-      { id: 'last_dot_first', label: '{last}.{first}@{domain}', format: '{last}.{first}@{domain}' },
-      { id: 'first', label: '{first}@{domain}', format: '{first}@{domain}' },
-      { id: 'last', label: '{last}@{domain}', format: '{last}@{domain}' },
-      // New presets added below
-      { id: 'first_last2', label: '{first}{last2}@{domain}', format: '{first}{last2}@{domain}' },
-      { id: 'f_dot_last', label: '{f}.{last}@{domain}', format: '{f}.{last}@{domain}' },
-      { id: 'first_dot_l', label: '{first}.{l}@{domain}', format: '{first}.{l}@{domain}' },
-      { id: 'f_l', label: '{f}{l}@{domain}', format: '{f}{l}@{domain}' },
-      { id: 'last_dot_f', label: '{last}.{f}@{domain}', format: '{last}.{f}@{domain}' }
+      { 
+        id: 'first_dot_last', 
+        label: '{first}.{last}@{domain}', 
+        format: '{first}.{last}@{domain}', 
+        column: 'email_first_last_dot' 
+      },
+      { 
+        id: 'f_last', 
+        label: '{f}{last}@{domain}', 
+        format: '{f}{last}@{domain}', 
+        column: 'email_f_last' 
+      },
+      { 
+        id: 'first_underscore_last', 
+        label: '{first}_{last}@{domain}', 
+        format: '{first}_{last}@{domain}', 
+        column: 'email_first_underscore_last' 
+      },
+      { 
+        id: 'first_l', 
+        label: '{first}{l}@{domain}', 
+        format: '{first}{l}@{domain}', 
+        column: 'email_first_l' 
+      },
+      { 
+        id: 'last_dot_first', 
+        label: '{last}.{first}@{domain}', 
+        format: '{last}.{first}@{domain}', 
+        column: 'email_last_dot_first' 
+      },
+      { 
+        id: 'first', 
+        label: '{first}@{domain}', 
+        format: '{first}@{domain}', 
+        column: 'email_first' 
+      },
+      { 
+        id: 'last', 
+        label: '{last}@{domain}', 
+        format: '{last}@{domain}', 
+        column: 'email_last' 
+      },
+      { 
+        id: 'first_last2', 
+        label: '{first}{last2}@{domain}', 
+        format: '{first}{last2}@{domain}', 
+        column: 'email_first_last2' 
+      },
+      { 
+        id: 'f_dot_last', 
+        label: '{f}.{last}@{domain}', 
+        format: '{f}.{last}@{domain}', 
+        column: 'email_f_dot_last' 
+      },
+      { 
+        id: 'first_dot_l', 
+        label: '{first}.{l}@{domain}', 
+        format: '{first}.{l}@{domain}', 
+        column: 'email_first_dot_l' 
+      },
+      { 
+        id: 'f_l', 
+        label: '{f}{l}@{domain}', 
+        format: '{f}{l}@{domain}', 
+        column: 'email_f_l' 
+      },
+      { 
+        id: 'last_dot_f', 
+        label: '{last}.{f}@{domain}', 
+        format: '{last}.{f}@{domain}', 
+        column: 'email_last_dot_f' 
+      }
     ];
 
     function findNameFields(headers) {
@@ -279,9 +383,7 @@
       try {
         t = t.normalize('NFKD').replace(/\p{Diacritic}/gu, '');
       } catch (e) {}
-      t = t.replace(/[^a-z0-9]+/gi, '.');
-      t = t.replace(/\.+/g, '.');
-      t = t.replace(/^\.|\.$/g, '');
+      t = t.replace(/[^a-z0-9]+/gi, '');
       return t;
     }
 
@@ -299,13 +401,19 @@
       const lastInitial = l ? l[0] : '';
       const firstTwoLastChars = getFirstTwoChars(last);
       
-      return formatStr
+      let result = formatStr
         .replace(/\{first\}/gi, f)
         .replace(/\{last\}/gi, l)
         .replace(/\{f\}/gi, firstInitial)
         .replace(/\{l\}/gi, lastInitial)
         .replace(/\{last2\}/gi, firstTwoLastChars)
         .replace(/\{domain\}/gi, domainStr || '');
+      
+      // Handle dot cases (remove multiple dots and dots at ends)
+      result = result.replace(/\.+/g, '.');
+      result = result.replace(/^\.|\.$/g, '');
+      
+      return result;
     }
 
     let parsedRows = [];
@@ -315,51 +423,58 @@
 
     const fileInput = document.getElementById('excelFile');
     const parsedHeadersEl = document.getElementById('parsedHeaders');
-    const presetSelect = document.getElementById('presetSelect');
-    const formatInput = document.getElementById('formatInput');
     const generateBtn = document.getElementById('generateBtn');
     const downloadBtn = document.getElementById('downloadBtn');
     const resetBtn = document.getElementById('resetBtn');
-    const errorEl = document.getElementById('error');
+    const messageEl = document.getElementById('message');
     const previewArea = document.getElementById('previewArea');
     const presetCheckboxes = document.getElementById('presetCheckboxes');
     const selectAllPresetsBtn = document.getElementById('selectAllPresets');
     const clearPresetsBtn = document.getElementById('clearPresets');
+    const selectedCount = document.getElementById('selectedCount');
+
+    function updateSelectedCount() {
+      const checked = document.querySelectorAll('#presetCheckboxes input[type=checkbox]:checked').length;
+      selectedCount.textContent = `${checked}/${PRESETS.length} selected`;
+    }
 
     function initPresets() {
+      // Clear existing content
+      presetCheckboxes.innerHTML = '';
+      
       PRESETS.forEach(p => {
-        const opt = document.createElement('option');
-        opt.value = p.format;
-        opt.textContent = p.label;
-        presetSelect.appendChild(opt);
-
+        // Add checkbox
         const wrap = document.createElement('label');
         wrap.className = 'preset-item';
+        
         const cb = document.createElement('input');
         cb.type = 'checkbox';
         cb.value = p.format;
         cb.dataset.id = p.id;
+        cb.dataset.column = p.column;
+        cb.addEventListener('change', updateSelectedCount);
+        
         const span = document.createElement('span');
         span.textContent = p.label;
+        
         wrap.appendChild(cb);
         wrap.appendChild(span);
         presetCheckboxes.appendChild(wrap);
       });
 
-      presetSelect.addEventListener('change', () => {
-        formatInput.value = presetSelect.value;
-      });
+      updateSelectedCount();
     }
 
     initPresets();
 
     fileInput.addEventListener('change', async (e) => {
-      errorEl.textContent = '';
+      messageEl.textContent = '';
+      messageEl.className = 'error';
       const file = e.target.files && e.target.files[0];
       if (!file) return;
       
       if (!file.name.endsWith('.xlsx') && !file.type.includes('spreadsheet')) {
-        errorEl.textContent = 'Please upload an Excel (.xlsx) file.';
+        messageEl.textContent = 'Please upload an Excel (.xlsx) file.';
         return;
       }
 
@@ -377,7 +492,7 @@
         const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
         
         if (jsonData.length === 0) {
-          errorEl.textContent = 'Excel file is empty.';
+          messageEl.textContent = 'Excel file is empty.';
           return;
         }
         
@@ -395,45 +510,60 @@
           parsedRows.push(rowObj);
         }
         
-        parsedHeadersEl.textContent = parsedHeaders.length ? parsedHeaders.join(', ') : 'No headers found';
-        previewArea.innerHTML = 'Excel file parsed. Click Generate to create emails.';
+        parsedHeadersEl.textContent = `Found columns: ${parsedHeaders.join(', ')}`;
+        previewArea.innerHTML = 'Excel file parsed. Click Generate Emails to create emails.';
         
       } catch (err) {
         console.error('Error parsing Excel:', err);
-        errorEl.textContent = 'Error parsing Excel file: ' + String(err);
+        messageEl.textContent = 'Error parsing Excel file: ' + String(err);
       }
     });
 
     generateBtn.addEventListener('click', () => {
-      errorEl.textContent = '';
+      messageEl.textContent = '';
+      messageEl.className = 'error';
+      
       if (!parsedRows.length) {
-        errorEl.textContent = 'No rows to process. Please upload an Excel file first.';
+        messageEl.textContent = 'No rows to process. Please upload an Excel file first.';
         return;
       }
 
       const nameFields = findNameFields(parsedHeaders);
       if (!nameFields.first || !nameFields.last || !nameFields.domain) {
-        errorEl.textContent = "Excel file must include 'first_name', 'last_name', and 'company_domain' columns.";
+        messageEl.textContent = "Excel file must include 'first_name', 'last_name', and 'company_domain' columns.";
         return;
       }
 
-      const checked = Array.from(presetCheckboxes.querySelectorAll('input[type=checkbox]:checked')).map(i => i.value);
-      const formatsToUse = checked.length ? checked : [ formatInput.value.trim() ];
+      // Get all checked presets
+      const checkedPresets = Array.from(presetCheckboxes.querySelectorAll('input[type=checkbox]:checked'));
+      
+      if (checkedPresets.length === 0) {
+        messageEl.textContent = 'Please select at least one preset format.';
+        return;
+      }
 
-      const generated = parsedRows.map(r => {
+      // Generate emails for each row
+      const generated = parsedRows.map((r) => {
         const first = r[nameFields.first] ?? '';
         const last = r[nameFields.last] ?? '';
         const domain = r[nameFields.domain] ?? '';
+        
+        // Start with original row data
         const out = { ...r };
-        formatsToUse.forEach(fmt => {
-          const col = 'email_' + fmt.replace(/[^a-z0-9]/gi, '_').replace(/_+/g, '_');
-          out[col] = generateEmailFromFormat(fmt, first, last, domain);
+        
+        // Generate email for each checked preset
+        checkedPresets.forEach(cb => {
+          const format = cb.value;
+          const columnName = cb.dataset.column;
+          out[columnName] = generateEmailFromFormat(format, first, last, domain);
         });
+        
         return out;
       });
 
       parsedRows = generated;
 
+      // Show preview
       const preview = generated.slice(0, 20);
       if (!preview.length) {
         previewArea.innerHTML = 'No rows to preview.';
@@ -447,28 +577,28 @@
       });
       html += '</tbody></table>';
       previewArea.innerHTML = html;
+      
+      // Show success message with count
+      messageEl.textContent = `✅ Generated ${checkedPresets.length} email formats for ${generated.length} rows.`;
+      messageEl.className = 'success';
     });
 
     downloadBtn.addEventListener('click', () => {
-      errorEl.textContent = '';
+      messageEl.textContent = '';
+      messageEl.className = 'error';
+      
       if (!parsedRows.length) {
-        errorEl.textContent = 'No data to download. Generate emails first.';
+        messageEl.textContent = 'No data to download. Generate emails first.';
         return;
       }
+      
       try {
         // Create a new worksheet from the generated data
         const worksheet = XLSX.utils.json_to_sheet(parsedRows);
         
-        // Create a new workbook or use the original
-        let workbook;
-        if (originalWorkbook) {
-          workbook = originalWorkbook;
-          // Update the original sheet with new data
-          workbook.Sheets[originalSheetName] = worksheet;
-        } else {
-          workbook = XLSX.utils.book_new();
-          XLSX.utils.book_append_sheet(workbook, worksheet, "Emails");
-        }
+        // Create a new workbook
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Emails");
         
         // Generate Excel file
         const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
@@ -486,9 +616,12 @@
         a.remove();
         URL.revokeObjectURL(url);
         
+        messageEl.textContent = '✅ Download started!';
+        messageEl.className = 'success';
+        
       } catch (e) {
         console.error('Error creating Excel:', e);
-        errorEl.textContent = 'Failed to create Excel file: ' + String(e);
+        messageEl.textContent = 'Failed to create Excel file: ' + String(e);
       }
     });
 
@@ -499,18 +632,21 @@
       originalSheetName = '';
       fileInput.value = '';
       parsedHeadersEl.textContent = 'No file uploaded yet.';
-      previewArea.innerHTML = 'No preview. Click Generate.';
-      errorEl.textContent = '';
-      formatInput.value = '{first}.{last}@{domain}';
+      previewArea.innerHTML = 'No preview. Click Generate Emails.';
+      messageEl.textContent = '';
+      messageEl.className = 'error';
       presetCheckboxes.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = false);
+      updateSelectedCount();
     });
 
     selectAllPresetsBtn.addEventListener('click', () => {
       presetCheckboxes.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = true);
+      updateSelectedCount();
     });
 
     clearPresetsBtn.addEventListener('click', () => {
       presetCheckboxes.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = false);
+      updateSelectedCount();
     });
 
     function escapeHtml(s) {
