@@ -198,7 +198,7 @@
         <label>Email Format</label>
         <select id="presetSelect"></select>
         <input id="formatInput" type="text" value="{first}.{last}@{domain}" placeholder="Custom format e.g. {first}.{last}@{domain}" />
-        <div class="small">Placeholders: <code>{first}</code>, <code>{last}</code>, <code>{f}</code>, <code>{l}</code>, <code>{domain}</code></div>
+        <div class="small">Placeholders: <code>{first}</code>, <code>{last}</code>, <code>{f}</code>, <code>{l}</code>, <code>{last2}</code> (first 2 chars), <code>{domain}</code></div>
       </div>
       <div class="col">
         <div class="meta">Using <code>company_domain</code> column from Excel.</div>
@@ -233,6 +233,11 @@
         <li><code>{f}{last}@{domain}</code> → jdoe@example.com</li>
         <li><code>{first}_{last}@{domain}</code> → john_doe@example.com</li>
         <li><code>{first}{l}@{domain}</code> → johnd@example.com</li>
+        <li><code>{first}{last2}@{domain}</code> → faizalsh@example.com (first name + first 2 letters of last name)</li>
+        <li><code>{f}.{last}@{domain}</code> → f.shaikh@example.com</li>
+        <li><code>{first}.{l}@{domain}</code> → faizal.s@example.com</li>
+        <li><code>{last}.{first}@{domain}</code> → shaikh.faizal@example.com</li>
+        <li><code>{f}{l}@{domain}</code> → fs@example.com</li>
       </ul>
     </div>
 
@@ -251,7 +256,13 @@
       { id: 'first_last_initial', label: '{first}{l}@{domain}', format: '{first}{l}@{domain}' },
       { id: 'last_dot_first', label: '{last}.{first}@{domain}', format: '{last}.{first}@{domain}' },
       { id: 'first', label: '{first}@{domain}', format: '{first}@{domain}' },
-      { id: 'last', label: '{last}@{domain}', format: '{last}@{domain}' }
+      { id: 'last', label: '{last}@{domain}', format: '{last}@{domain}' },
+      // New presets added below
+      { id: 'first_last2', label: '{first}{last2}@{domain}', format: '{first}{last2}@{domain}' },
+      { id: 'f_dot_last', label: '{f}.{last}@{domain}', format: '{f}.{last}@{domain}' },
+      { id: 'first_dot_l', label: '{first}.{l}@{domain}', format: '{first}.{l}@{domain}' },
+      { id: 'f_l', label: '{f}{l}@{domain}', format: '{f}{l}@{domain}' },
+      { id: 'last_dot_f', label: '{last}.{f}@{domain}', format: '{last}.{f}@{domain}' }
     ];
 
     function findNameFields(headers) {
@@ -274,16 +285,26 @@
       return t;
     }
 
+    function getFirstTwoChars(str) {
+      if (!str) return '';
+      const s = String(str).toLowerCase();
+      if (s.length <= 2) return s;
+      return s.substring(0, 2);
+    }
+
     function generateEmailFromFormat(formatStr, first, last, domainStr) {
       const f = normalizeForEmail(first);
       const l = normalizeForEmail(last);
       const firstInitial = f ? f[0] : '';
       const lastInitial = l ? l[0] : '';
+      const firstTwoLastChars = getFirstTwoChars(last);
+      
       return formatStr
         .replace(/\{first\}/gi, f)
         .replace(/\{last\}/gi, l)
         .replace(/\{f\}/gi, firstInitial)
         .replace(/\{l\}/gi, lastInitial)
+        .replace(/\{last2\}/gi, firstTwoLastChars)
         .replace(/\{domain\}/gi, domainStr || '');
     }
 
