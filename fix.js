@@ -136,8 +136,7 @@ class NameFixer {
         // Comprehensive list of titles and professions to remove (case insensitive)
         const titles = [
             // Medical
-            "dr", "doctor", "md", "mbbs", "dmd", "dds", "do", "pharmd",
-            "rn", "lpn", "np", "pa",
+            "dr", "doctor", "md", "mbbs", "dmd", "dds", "do", "pharmd", "lpn", "np", "pa",
             
             // Academic
             "prof", "professor", "assoc prof", "asst prof",
